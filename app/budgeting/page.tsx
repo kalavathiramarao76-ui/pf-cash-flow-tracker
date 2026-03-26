@@ -1,5 +1,4 @@
-use client;
-
+import * as tf from '@tensorflow/tfjs';
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { BudgetCategory, Transaction } from '../types';
@@ -13,6 +12,7 @@ export default function BudgetingPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [suggestedCategories, setSuggestedCategories] = useState<BudgetCategory[]>([]);
+  const [mlModel, setMlModel] = useState<tf.Sequential | null>(null);
 
   useEffect(() => {
     const storedBudgetCategories = getBudgetCategories();
@@ -26,6 +26,18 @@ export default function BudgetingPage() {
     setSuggestedCategories(suggestedCategories);
   }, [transactions]);
 
+  useEffect(() => {
+    const loadModel = async () => {
+      try {
+        const model = await tf.loadLayersModel('https://example.com/model.json');
+        setMlModel(model);
+      } catch (error) {
+        console.error('Error loading model:', error);
+      }
+    };
+    loadModel();
+  }, []);
+
   const handleCategoryChange = (category: string | null) => {
     setSelectedCategory(category);
   };
@@ -37,12 +49,23 @@ export default function BudgetingPage() {
   };
 
   const categorizeTransaction = (transaction: Transaction): Transaction => {
-    const category = budgetCategories.find(category => {
-      const keywords = category.keywords || [];
-      const description = transaction.description.toLowerCase();
-      return keywords.some(keyword => description.includes(keyword.toLowerCase()));
-    });
-    return { ...transaction, category: category?.name || 'Uncategorized' };
+    if (mlModel) {
+      const input = tf.tensor2d([[
+        transaction.amount,
+        ...transaction.description.toLowerCase().split(' ').map(word => word.length),
+      ]]);
+      const output = mlModel.predict(input);
+      const categoryIndex = tf.argMax(output, 1).dataSync()[0];
+      const category = budgetCategories[categoryIndex];
+      return { ...transaction, category: category?.name || 'Uncategorized' };
+    } else {
+      const category = budgetCategories.find(category => {
+        const keywords = category.keywords || [];
+        const description = transaction.description.toLowerCase();
+        return keywords.some(keyword => description.includes(keyword.toLowerCase()));
+      });
+      return { ...transaction, category: category?.name || 'Uncategorized' };
+    }
   };
 
   const handleTransactionCategorization = () => {
@@ -53,7 +76,7 @@ export default function BudgetingPage() {
 
   useEffect(() => {
     handleTransactionCategorization();
-  }, [budgetCategories, transactions]);
+  }, [budgetCategories, transactions, mlModel]);
 
   const suggestBudgetCategories = (transactions: Transaction[]): BudgetCategory[] => {
     const categorySuggestions: { [key: string]: BudgetCategory } = {};
@@ -74,18 +97,14 @@ export default function BudgetingPage() {
       <h1 className="text-2xl font-bold mb-4">Budgeting</h1>
       <BudgetForm
         budgetCategories={budgetCategories}
-        suggestedCategories={suggestedCategories}
         onBudgetSubmit={handleBudgetSubmit}
       />
-      <div className="mt-4">
-        <h2 className="text-xl font-bold mb-2">Budget Categories</h2>
-        <BudgetTable
-          budgetCategories={budgetCategories}
-          transactions={transactions}
-          selectedCategory={selectedCategory}
-          onCategoryChange={handleCategoryChange}
-        />
-      </div>
+      <BudgetTable
+        transactions={transactions}
+        budgetCategories={budgetCategories}
+        onCategoryChange={handleCategoryChange}
+        selectedCategory={selectedCategory}
+      />
     </div>
   );
 }

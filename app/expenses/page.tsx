@@ -12,9 +12,13 @@ export default function ExpensesPage() {
   const [pageNumber, setPageNumber] = useState(1);
   const [hasMoreExpenses, setHasMoreExpenses] = useState(true);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [initialLoad, setInitialLoad] = useState(true);
 
   useEffect(() => {
     const fetchExpenses = async () => {
+      if (initialLoad) {
+        setInitialLoad(false);
+      }
       setLoading(true);
       const expensesResponse = await getExpenses(pageNumber, itemsPerPage);
       if (pageNumber === 1) {
@@ -25,8 +29,10 @@ export default function ExpensesPage() {
       setHasMoreExpenses(expensesResponse.hasMore);
       setLoading(false);
     };
-    fetchExpenses();
-  }, [pageNumber, itemsPerPage]);
+    if (initialLoad || pageNumber > 1) {
+      fetchExpenses();
+    }
+  }, [pageNumber, itemsPerPage, initialLoad]);
 
   const handleAddExpense = async (expense: Expense) => {
     await addExpense(expense);

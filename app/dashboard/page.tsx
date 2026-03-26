@@ -50,6 +50,8 @@ const DashboardPage = () => {
       },
     ],
   });
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [detailedTransactions, setDetailedTransactions] = useState([]);
 
   useEffect(() => {
     const storedTransactions = LocalStorage.get('transactions');
@@ -105,49 +107,25 @@ const DashboardPage = () => {
     LocalStorage.set('income', JSON.stringify(newIncome));
   };
 
-  const handleUpdateExpenses = (newExpenses: number) => {
-    setExpenses(newExpenses);
-    LocalStorage.set('expenses', JSON.stringify(newExpenses));
-  };
-
-  const handleUpdateBudget = (newBudget: number) => {
-    setBudget(newBudget);
-    LocalStorage.set('budget', JSON.stringify(newBudget));
+  const handleDrillDown = (date: string) => {
+    const filteredTransactions = transactions.filter((transaction: any) => transaction.date === date);
+    setDetailedTransactions(filteredTransactions);
+    setSelectedDate(date);
   };
 
   return (
     <DashboardLayout>
-      <div className="flex flex-col md:flex-row justify-center items-center gap-4 mb-4">
-        <div className="w-full md:w-1/3 xl:w-1/3 p-4 bg-white rounded-lg shadow-md">
-          <h2 className="text-lg font-bold mb-2">Financial Overview</h2>
-          <div className="flex flex-col md:flex-row justify-center items-center gap-4">
-            <OverviewCard
-              title="Income"
-              amount={income}
-              onAddTransaction={handleAddTransaction}
-              onUpdateIncome={handleUpdateIncome}
-            />
-            <OverviewCard
-              title="Expenses"
-              amount={expenses}
-              onAddTransaction={handleAddTransaction}
-              onUpdateExpenses={handleUpdateExpenses}
-            />
-            <OverviewCard
-              title="Budget"
-              amount={budget}
-              onAddTransaction={handleAddTransaction}
-              onUpdateBudget={handleUpdateBudget}
-            />
-          </div>
-        </div>
-        <div className="w-full md:w-2/3 xl:w-2/3 p-4 bg-white rounded-lg shadow-md">
-          <h2 className="text-lg font-bold mb-2">Financial Trends</h2>
-          <Line options={{ responsive: true }} data={chartData} />
-          <BudgetingChart />
-          <TransactionTable transactions={transactions} />
-        </div>
-      </div>
+      <OverviewCard income={income} expenses={expenses} budget={budget} />
+      <BudgetingChart
+        chartData={chartData}
+        handleDrillDown={handleDrillDown}
+      />
+      {selectedDate && (
+        <TransactionTable
+          transactions={detailedTransactions}
+          title={`Transactions for ${selectedDate}`}
+        />
+      )}
     </DashboardLayout>
   );
 };
