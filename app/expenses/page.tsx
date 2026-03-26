@@ -42,7 +42,10 @@ export default function ExpensesPage() {
   const handleAddExpense = async (expense: Expense) => {
     try {
       await addExpense(expense);
-      setExpenses([...expenses, expense]);
+      setExpenses((prevExpenses) => {
+        const newExpenses = [...prevExpenses, expense];
+        return newExpenses.slice(0, itemsPerPage * pageNumber);
+      });
     } catch (error) {
       console.error('Error adding expense:', error);
     }
@@ -51,7 +54,7 @@ export default function ExpensesPage() {
   const handleDeleteExpense = async (id: string) => {
     try {
       await deleteExpense(id);
-      setExpenses(expenses.filter((expense) => expense.id !== id));
+      setExpenses((prevExpenses) => prevExpenses.filter((expense) => expense.id !== id));
     } catch (error) {
       console.error('Error deleting expense:', error);
     }
@@ -68,7 +71,7 @@ export default function ExpensesPage() {
         <p>Loading...</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {expenses.map((expense) => (
+          {expenses.slice(0, itemsPerPage * pageNumber).map((expense) => (
             <ExpenseCard
               key={expense.id}
               expense={expense}

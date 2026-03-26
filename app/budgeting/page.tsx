@@ -50,12 +50,23 @@ export default function BudgetingPage() {
 
   const categorizeTransaction = (transaction: Transaction): Transaction => {
     if (mlModel) {
-      const input = tf.tensor2d([[
-        transaction.amount,
-        ...transaction.description.toLowerCase().split(' ').map(word => word.length),
-        ...transaction.description.toLowerCase().split(' ').map(word => word.charCodeAt(0)),
-      ]]);
-      const output = mlModel.predict(input);
+      const embeddingLayer = tf.layers.embedding({
+        inputDim: 10000,
+        outputDim: 128,
+        inputLength: transaction.description.split(' ').length,
+      });
+      const sequenceLayer = tf.layers.flatten();
+      const denseLayer = tf.layers.dense({
+        units: budgetCategories.length,
+        activation: 'softmax',
+      });
+      const model = tf.sequential();
+      model.add(embeddingLayer);
+      model.add(sequenceLayer);
+      model.add(denseLayer);
+      model.compile({ optimizer: tf.optimizers.adam(), loss: 'categoricalCrossentropy', metrics: ['accuracy'] });
+      const input = tf.tensor2d(transaction.description.split(' ').map(word => word.charCodeAt(0)));
+      const output = model.predict(input);
       const categoryIndex = tf.argMax(output, 1).dataSync()[0];
       const category = budgetCategories[categoryIndex];
       return { ...transaction, category: category?.name || 'Uncategorized' };
@@ -71,34 +82,8 @@ export default function BudgetingPage() {
 
   const handleTransactionCategorization = () => {
     const categorizedTransactions = transactions.map(categorizeTransaction);
-    setTransactions(categorizedTransactions);
     saveTransactions(categorizedTransactions);
-  };
-
-  const suggestBudgetCategories = (transactions: Transaction[]) => {
-    const categorySuggestions: BudgetCategory[] = [];
-    const transactionAmounts: { [key: string]: number } = {};
-
-    transactions.forEach((transaction) => {
-      if (transaction.category) {
-        if (transactionAmounts[transaction.category]) {
-          transactionAmounts[transaction.category] += transaction.amount;
-        } else {
-          transactionAmounts[transaction.category] = transaction.amount;
-        }
-      }
-    });
-
-    Object.keys(transactionAmounts).forEach((category) => {
-      const amount = transactionAmounts[category];
-      const suggestedCategory: BudgetCategory = {
-        name: category,
-        budget: amount * 0.8, // suggest 80% of the total amount for the category
-      };
-      categorySuggestions.push(suggestedCategory);
-    });
-
-    return categorySuggestions;
+    setTransactions(categorizedTransactions);
   };
 
   return (
@@ -106,12 +91,12 @@ export default function BudgetingPage() {
       <BudgetForm
         budgetCategories={budgetCategories}
         handleBudgetSubmit={handleBudgetSubmit}
-        suggestedCategories={suggestedCategories}
+        handleCategoryChange={handleCategoryChange}
+        selectedCategory={selectedCategory}
       />
       <BudgetTable
         transactions={transactions}
         budgetCategories={budgetCategories}
-        handleCategoryChange={handleCategoryChange}
         handleTransactionCategorization={handleTransactionCategorization}
       />
     </div>

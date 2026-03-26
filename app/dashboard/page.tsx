@@ -104,13 +104,25 @@ const DashboardPage = () => {
       },
     ],
   });
+  const [chartType, setChartType] = useState('line');
+  const [chartOptions, setChartOptions] = useState({
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top',
+      },
+      title: {
+        display: true,
+        text: 'Cash Flow Chart',
+      },
+    },
+  });
 
   useEffect(() => {
     const storedTransactions = LocalStorage.get('transactions');
     const storedIncome = LocalStorage.get('income');
     const storedExpenses = LocalStorage.get('expenses');
     const storedBudget = LocalStorage.get('budget');
-
     if (storedTransactions) {
       setTransactions(storedTransactions);
     }
@@ -125,102 +137,79 @@ const DashboardPage = () => {
     }
   }, []);
 
-  const handleDateChange = (date: any) => {
-    setSelectedDate(date);
-    const filteredTransactions = transactions.filter((transaction: any) => {
-      return transaction.date === date;
-    });
-    setDetailedTransactions(filteredTransactions);
+  const handleChartTypeChange = (type: string) => {
+    setChartType(type);
   };
 
-  const handleChartClick = (event: any, elements: any) => {
-    if (elements.length > 0) {
-      const chartData = elements[0].dataset.data;
-      const chartLabel = elements[0].dataset.label;
-      if (chartLabel === 'Income') {
-        const incomeData = chartData[elements[0].index];
-        const incomeTransactions = transactions.filter((transaction: any) => {
-          return transaction.type === 'income' && transaction.date === selectedDate;
-        });
-        setDetailedTransactions(incomeTransactions);
-      } else if (chartLabel === 'Expenses') {
-        const expenseData = chartData[elements[0].index];
-        const expenseTransactions = transactions.filter((transaction: any) => {
-          return transaction.type === 'expense' && transaction.date === selectedDate;
-        });
-        setDetailedTransactions(expenseTransactions);
-      }
-    }
-  };
-
-  const options = {
-    responsive: true,
-    plugins: {
-      legend: {
-        position: 'top' as const,
-      },
-      title: {
-        display: true,
-        text: 'Cash Flow Chart',
-      },
-    },
-    interaction: {
-      mode: 'nearest',
-      intersect: false,
-      axis: 'xy',
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-      },
-    },
+  const handleChartOptionsChange = (options: any) => {
+    setChartOptions(options);
   };
 
   return (
     <DashboardLayout>
-      <OverviewCard income={income} expenses={expenses} budget={budget} />
+      <OverviewCard
+        income={income}
+        expenses={expenses}
+        budget={budget}
+      />
+      <TransactionTable transactions={transactions} />
       <div className="chart-container">
-        <Line
-          data={chartData}
-          options={options}
-          onClick={(event, elements) => handleChartClick(event, elements)}
-        />
+        <div className="chart-type-selector">
+          <button
+            className={chartType === 'line' ? 'active' : ''}
+            onClick={() => handleChartTypeChange('line')}
+          >
+            Line
+          </button>
+          <button
+            className={chartType === 'bar' ? 'active' : ''}
+            onClick={() => handleChartTypeChange('bar')}
+          >
+            Bar
+          </button>
+          <button
+            className={chartType === 'pie' ? 'active' : ''}
+            onClick={() => handleChartTypeChange('pie')}
+          >
+            Pie
+          </button>
+        </div>
+        {chartType === 'line' && (
+          <Line
+            data={chartData}
+            options={chartOptions}
+            className="chart"
+          />
+        )}
+        {chartType === 'bar' && (
+          <Bar
+            data={chartData}
+            options={chartOptions}
+            className="chart"
+          />
+        )}
+        {chartType === 'pie' && (
+          <Pie
+            data={chartData}
+            options={chartOptions}
+            className="chart"
+          />
+        )}
       </div>
-      <div className="chart-container">
+      <div className="distribution-charts">
+        <h2>Income Distribution</h2>
         <Pie
           data={incomeDistribution}
-          options={{
-            responsive: true,
-            plugins: {
-              legend: {
-                position: 'top' as const,
-              },
-              title: {
-                display: true,
-                text: 'Income Distribution',
-              },
-            },
-          }}
+          options={chartOptions}
+          className="chart"
         />
-      </div>
-      <div className="chart-container">
+        <h2>Expense Distribution</h2>
         <Pie
           data={expenseDistribution}
-          options={{
-            responsive: true,
-            plugins: {
-              legend: {
-                position: 'top' as const,
-              },
-              title: {
-                display: true,
-                text: 'Expense Distribution',
-              },
-            },
-          }}
+          options={chartOptions}
+          className="chart"
         />
       </div>
-      <TransactionTable transactions={detailedTransactions} />
     </DashboardLayout>
   );
 };
