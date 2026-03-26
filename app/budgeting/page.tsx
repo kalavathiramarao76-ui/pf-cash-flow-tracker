@@ -12,6 +12,7 @@ export default function BudgetingPage() {
   const [budgetCategories, setBudgetCategories] = useState<BudgetCategory[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [suggestedCategories, setSuggestedCategories] = useState<BudgetCategory[]>([]);
 
   useEffect(() => {
     const storedBudgetCategories = getBudgetCategories();
@@ -19,6 +20,11 @@ export default function BudgetingPage() {
     setBudgetCategories(storedBudgetCategories);
     setTransactions(storedTransactions);
   }, []);
+
+  useEffect(() => {
+    const suggestedCategories = suggestBudgetCategories(transactions);
+    setSuggestedCategories(suggestedCategories);
+  }, [transactions]);
 
   const handleCategoryChange = (category: string | null) => {
     setSelectedCategory(category);
@@ -49,11 +55,26 @@ export default function BudgetingPage() {
     handleTransactionCategorization();
   }, [budgetCategories, transactions]);
 
+  const suggestBudgetCategories = (transactions: Transaction[]): BudgetCategory[] => {
+    const categorySuggestions: { [key: string]: BudgetCategory } = {};
+    transactions.forEach(transaction => {
+      const description = transaction.description.toLowerCase();
+      const words = description.split(' ');
+      words.forEach(word => {
+        if (word.length > 3 && !categorySuggestions[word]) {
+          categorySuggestions[word] = { name: word, keywords: [word] };
+        }
+      });
+    });
+    return Object.values(categorySuggestions);
+  };
+
   return (
     <div className="flex flex-col h-screen p-4 md:p-6 lg:p-8">
       <h1 className="text-2xl font-bold mb-4">Budgeting</h1>
       <BudgetForm
         budgetCategories={budgetCategories}
+        suggestedCategories={suggestedCategories}
         onBudgetSubmit={handleBudgetSubmit}
       />
       <div className="mt-4">

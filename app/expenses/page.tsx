@@ -1,5 +1,3 @@
-use client;
-
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { getExpenses, addExpense, deleteExpense } from '../lib/expenses';
@@ -13,17 +11,22 @@ export default function ExpensesPage() {
   const [loading, setLoading] = useState(false);
   const [pageNumber, setPageNumber] = useState(1);
   const [hasMoreExpenses, setHasMoreExpenses] = useState(true);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   useEffect(() => {
     const fetchExpenses = async () => {
       setLoading(true);
-      const expensesResponse = await getExpenses(pageNumber);
-      setExpenses((prevExpenses) => [...prevExpenses, ...expensesResponse.expenses]);
+      const expensesResponse = await getExpenses(pageNumber, itemsPerPage);
+      if (pageNumber === 1) {
+        setExpenses(expensesResponse.expenses);
+      } else {
+        setExpenses((prevExpenses) => [...prevExpenses, ...expensesResponse.expenses]);
+      }
       setHasMoreExpenses(expensesResponse.hasMore);
       setLoading(false);
     };
     fetchExpenses();
-  }, [pageNumber]);
+  }, [pageNumber, itemsPerPage]);
 
   const handleAddExpense = async (expense: Expense) => {
     await addExpense(expense);

@@ -5,6 +5,27 @@ import DashboardLayout from '../components/DashboardLayout';
 import OverviewCard from '../components/OverviewCard';
 import TransactionTable from '../components/TransactionTable';
 import BudgetingChart from '../components/BudgetingChart';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { Line } from 'react-chartjs-2';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+);
 
 const DashboardPage = () => {
   const pathname = usePathname();
@@ -12,6 +33,23 @@ const DashboardPage = () => {
   const [income, setIncome] = useState(0);
   const [expenses, setExpenses] = useState(0);
   const [budget, setBudget] = useState(0);
+  const [chartData, setChartData] = useState({
+    labels: [],
+    datasets: [
+      {
+        label: 'Income',
+        data: [],
+        borderColor: 'rgb(255, 99, 132)',
+        backgroundColor: 'rgba(255, 99, 132, 0.2)',
+      },
+      {
+        label: 'Expenses',
+        data: [],
+        borderColor: 'rgb(54, 162, 235)',
+        backgroundColor: 'rgba(54, 162, 235, 0.2)',
+      },
+    ],
+  });
 
   useEffect(() => {
     const storedTransactions = LocalStorage.get('transactions');
@@ -32,6 +70,30 @@ const DashboardPage = () => {
       setBudget(JSON.parse(storedBudget));
     }
   }, []);
+
+  useEffect(() => {
+    const labels = transactions.map((transaction: any) => transaction.date);
+    const incomeData = transactions.map((transaction: any) => transaction.income);
+    const expensesData = transactions.map((transaction: any) => transaction.expenses);
+
+    setChartData({
+      labels,
+      datasets: [
+        {
+          label: 'Income',
+          data: incomeData,
+          borderColor: 'rgb(255, 99, 132)',
+          backgroundColor: 'rgba(255, 99, 132, 0.2)',
+        },
+        {
+          label: 'Expenses',
+          data: expensesData,
+          borderColor: 'rgb(54, 162, 235)',
+          backgroundColor: 'rgba(54, 162, 235, 0.2)',
+        },
+      ],
+    });
+  }, [transactions]);
 
   const handleAddTransaction = (transaction: any) => {
     setTransactions((prevTransactions) => [...prevTransactions, transaction]);
@@ -80,13 +142,11 @@ const DashboardPage = () => {
           </div>
         </div>
         <div className="w-full md:w-2/3 xl:w-2/3 p-4 bg-white rounded-lg shadow-md">
-          <h2 className="text-lg font-bold mb-2">Transaction History</h2>
+          <h2 className="text-lg font-bold mb-2">Financial Trends</h2>
+          <Line options={{ responsive: true }} data={chartData} />
+          <BudgetingChart />
           <TransactionTable transactions={transactions} />
         </div>
-      </div>
-      <div className="w-full p-4 bg-white rounded-lg shadow-md">
-        <h2 className="text-lg font-bold mb-2">Budgeting Chart</h2>
-        <BudgetingChart income={income} expenses={expenses} budget={budget} />
       </div>
     </DashboardLayout>
   );
