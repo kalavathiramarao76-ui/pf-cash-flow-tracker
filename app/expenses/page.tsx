@@ -78,6 +78,9 @@ export default function ExpensesPage() {
               onDelete={() => handleDeleteExpense(expense.id)}
             />
           ))}
+          {loading && pageNumber > 1 && (
+            <div>Loading more expenses...</div>
+          )}
         </div>
       )}
       {hasMoreExpenses && (
