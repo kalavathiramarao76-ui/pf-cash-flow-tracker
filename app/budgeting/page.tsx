@@ -13,6 +13,9 @@ export default function BudgetingPage() {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [suggestedCategories, setSuggestedCategories] = useState<BudgetCategory[]>([]);
   const [mlModel, setMlModel] = useState<tf.Sequential | null>(null);
+  const [trainingData, setTrainingData] = useState<Transaction[]>([]);
+  const [validationData, setValidationData] = useState<Transaction[]>([]);
+  const [modelAccuracy, setModelAccuracy] = useState<number | null>(null);
 
   useEffect(() => {
     const storedBudgetCategories = getBudgetCategories();
@@ -37,6 +40,22 @@ export default function BudgetingPage() {
     };
     loadModel();
   }, []);
+
+  useEffect(() => {
+    if (transactions.length > 0) {
+      const splitIndex = Math.floor(transactions.length * 0.8);
+      const trainingData = transactions.slice(0, splitIndex);
+      const validationData = transactions.slice(splitIndex);
+      setTrainingData(trainingData);
+      setValidationData(validationData);
+    }
+  }, [transactions]);
+
+  useEffect(() => {
+    if (trainingData.length > 0 && budgetCategories.length > 0) {
+      trainModel();
+    }
+  }, [trainingData, budgetCategories]);
 
   const handleCategoryChange = (category: string | null) => {
     setSelectedCategory(category);
@@ -71,34 +90,64 @@ export default function BudgetingPage() {
       const category = budgetCategories[categoryIndex];
       return { ...transaction, category: category?.name || 'Uncategorized' };
     } else {
-      const category = budgetCategories.find(category => {
-        const keywords = category.keywords || [];
-        const description = transaction.description.toLowerCase();
-        return keywords.some(keyword => description.includes(keyword.toLowerCase()));
-      });
+      const category = budgetCategories.find(category => category.name === transaction.category);
       return { ...transaction, category: category?.name || 'Uncategorized' };
     }
   };
 
-  const handleTransactionCategorization = () => {
-    const categorizedTransactions = transactions.map(categorizeTransaction);
-    saveTransactions(categorizedTransactions);
-    setTransactions(categorizedTransactions);
+  const trainModel = async () => {
+    if (mlModel) {
+      const trainingInputs = trainingData.map(transaction => transaction.description.split(' ').map(word => word.charCodeAt(0)));
+      const trainingOutputs = trainingData.map(transaction => {
+        const categoryIndex = budgetCategories.findIndex(category => category.name === transaction.category);
+        return categoryIndex !== -1 ? categoryIndex : 0;
+      });
+      const validationInputs = validationData.map(transaction => transaction.description.split(' ').map(word => word.charCodeAt(0)));
+      const validationOutputs = validationData.map(transaction => {
+        const categoryIndex = budgetCategories.findIndex(category => category.name === transaction.category);
+        return categoryIndex !== -1 ? categoryIndex : 0;
+      });
+
+      const trainingInputTensor = tf.tensor2d(trainingInputs);
+      const trainingOutputTensor = tf.tensor1d(trainingOutputs, 'int32');
+      const validationInputTensor = tf.tensor2d(validationInputs);
+      const validationOutputTensor = tf.tensor1d(validationOutputs, 'int32');
+
+      await mlModel.fit(trainingInputTensor, trainingOutputTensor, {
+        epochs: 100,
+        validationData: [validationInputTensor, validationOutputTensor],
+        callbacks: {
+          onEpochEnd: async (epoch, logs) => {
+            setModelAccuracy(logs.val_accuracy);
+          },
+        },
+      });
+    }
+  };
+
+  const suggestBudgetCategories = (transactions: Transaction[]) => {
+    if (mlModel) {
+      const inputs = transactions.map(transaction => transaction.description.split(' ').map(word => word.charCodeAt(0)));
+      const inputTensor = tf.tensor2d(inputs);
+      const outputs = mlModel.predict(inputTensor);
+      const categoryIndices = tf.argMax(outputs, 1).dataSync();
+      return categoryIndices.map((index, i) => {
+        const category = budgetCategories[index];
+        return { name: category?.name || 'Uncategorized', transactions: [transactions[i]] };
+      });
+    } else {
+      return transactions.map(transaction => {
+        const category = budgetCategories.find(category => category.name === transaction.category);
+        return { name: category?.name || 'Uncategorized', transactions: [transaction] };
+      });
+    }
   };
 
   return (
     <div>
-      <BudgetForm
-        budgetCategories={budgetCategories}
-        handleBudgetSubmit={handleBudgetSubmit}
-        handleCategoryChange={handleCategoryChange}
-        selectedCategory={selectedCategory}
-      />
-      <BudgetTable
-        transactions={transactions}
-        budgetCategories={budgetCategories}
-        handleTransactionCategorization={handleTransactionCategorization}
-      />
+      <BudgetForm onBudgetSubmit={handleBudgetSubmit} />
+      <BudgetTable transactions={transactions} budgetCategories={budgetCategories} categorizeTransaction={categorizeTransaction} />
+      {modelAccuracy !== null && <p>Model Accuracy: {modelAccuracy.toFixed(2)}</p>}
     </div>
   );
 }

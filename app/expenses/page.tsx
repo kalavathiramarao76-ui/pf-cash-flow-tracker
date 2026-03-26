@@ -89,8 +89,7 @@ export default function ExpensesPage() {
           Load More
         </button>
       )}
-      {loading && pageNumber > 1 && <p>Loading more expenses...</p>}
-      <AddExpenseForm onAdd={handleAddExpense} />
+      <AddExpenseForm onAddExpense={handleAddExpense} />
     </div>
   );
 }
