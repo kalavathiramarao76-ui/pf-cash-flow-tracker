@@ -53,6 +53,7 @@ export default function BudgetingPage() {
       const input = tf.tensor2d([[
         transaction.amount,
         ...transaction.description.toLowerCase().split(' ').map(word => word.length),
+        ...transaction.description.toLowerCase().split(' ').map(word => word.charCodeAt(0)),
       ]]);
       const output = mlModel.predict(input);
       const categoryIndex = tf.argMax(output, 1).dataSync()[0];
@@ -74,27 +75,8 @@ export default function BudgetingPage() {
     saveTransactions(categorizedTransactions);
   };
 
-  useEffect(() => {
-    handleTransactionCategorization();
-  }, [budgetCategories, transactions, mlModel]);
-
-  const suggestBudgetCategories = (transactions: Transaction[]): BudgetCategory[] => {
-    const categorySuggestions: { [key: string]: BudgetCategory } = {};
-    transactions.forEach(transaction => {
-      const description = transaction.description.toLowerCase();
-      const words = description.split(' ');
-      words.forEach(word => {
-        if (word.length > 3 && !categorySuggestions[word]) {
-          categorySuggestions[word] = { name: word, keywords: [word] };
-        }
-      });
-    });
-    return Object.values(categorySuggestions);
-  };
-
   return (
-    <div className="flex flex-col h-screen p-4 md:p-6 lg:p-8">
-      <h1 className="text-2xl font-bold mb-4">Budgeting</h1>
+    <div>
       <BudgetForm
         budgetCategories={budgetCategories}
         onBudgetSubmit={handleBudgetSubmit}
@@ -104,7 +86,14 @@ export default function BudgetingPage() {
         budgetCategories={budgetCategories}
         onCategoryChange={handleCategoryChange}
         selectedCategory={selectedCategory}
+        suggestedCategories={suggestedCategories}
+        onTransactionCategorization={handleTransactionCategorization}
       />
     </div>
   );
+}
+
+function suggestBudgetCategories(transactions: Transaction[]): BudgetCategory[] {
+  // implement logic to suggest budget categories based on transactions
+  return [];
 }
