@@ -11,16 +11,19 @@ export default function ExpensesPage() {
   const pathname = usePathname();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(false);
+  const [pageNumber, setPageNumber] = useState(1);
+  const [hasMoreExpenses, setHasMoreExpenses] = useState(true);
 
   useEffect(() => {
     const fetchExpenses = async () => {
       setLoading(true);
-      const expenses = await getExpenses();
-      setExpenses(expenses);
+      const expensesResponse = await getExpenses(pageNumber);
+      setExpenses((prevExpenses) => [...prevExpenses, ...expensesResponse.expenses]);
+      setHasMoreExpenses(expensesResponse.hasMore);
       setLoading(false);
     };
     fetchExpenses();
-  }, []);
+  }, [pageNumber]);
 
   const handleAddExpense = async (expense: Expense) => {
     await addExpense(expense);
@@ -32,10 +35,14 @@ export default function ExpensesPage() {
     setExpenses(expenses.filter((expense) => expense.id !== id));
   };
 
+  const handleLoadMore = () => {
+    setPageNumber((prevPageNumber) => prevPageNumber + 1);
+  };
+
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6 lg:p-8">
       <h1 className="text-3xl font-bold mb-4">Expenses</h1>
-      {loading ? (
+      {loading && pageNumber === 1 ? (
         <p>Loading...</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -48,6 +55,15 @@ export default function ExpensesPage() {
           ))}
         </div>
       )}
+      {hasMoreExpenses && (
+        <button
+          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
+          onClick={handleLoadMore}
+        >
+          Load More
+        </button>
+      )}
+      {loading && pageNumber > 1 && <p>Loading more expenses...</p>}
       <AddExpenseForm onAdd={handleAddExpense} />
     </div>
   );

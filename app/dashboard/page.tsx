@@ -1,5 +1,3 @@
-use client;
-
 import { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import { LocalStorage } from '../utils/localStorage';
@@ -57,30 +55,37 @@ const DashboardPage = () => {
 
   return (
     <DashboardLayout>
-      <div className="flex flex-col md:flex-row justify-center items-center gap-4">
-        <OverviewCard
-          title="Income"
-          amount={income}
-          onAddTransaction={handleAddTransaction}
-          onUpdateIncome={handleUpdateIncome}
-        />
-        <OverviewCard
-          title="Expenses"
-          amount={expenses}
-          onAddTransaction={handleAddTransaction}
-          onUpdateExpenses={handleUpdateExpenses}
-        />
-        <OverviewCard
-          title="Budget"
-          amount={budget}
-          onAddTransaction={handleAddTransaction}
-          onUpdateBudget={handleUpdateBudget}
-        />
+      <div className="flex flex-col md:flex-row justify-center items-center gap-4 mb-4">
+        <div className="w-full md:w-1/3 xl:w-1/3 p-4 bg-white rounded-lg shadow-md">
+          <h2 className="text-lg font-bold mb-2">Financial Overview</h2>
+          <div className="flex flex-col md:flex-row justify-center items-center gap-4">
+            <OverviewCard
+              title="Income"
+              amount={income}
+              onAddTransaction={handleAddTransaction}
+              onUpdateIncome={handleUpdateIncome}
+            />
+            <OverviewCard
+              title="Expenses"
+              amount={expenses}
+              onAddTransaction={handleAddTransaction}
+              onUpdateExpenses={handleUpdateExpenses}
+            />
+            <OverviewCard
+              title="Budget"
+              amount={budget}
+              onAddTransaction={handleAddTransaction}
+              onUpdateBudget={handleUpdateBudget}
+            />
+          </div>
+        </div>
+        <div className="w-full md:w-2/3 xl:w-2/3 p-4 bg-white rounded-lg shadow-md">
+          <h2 className="text-lg font-bold mb-2">Transaction History</h2>
+          <TransactionTable transactions={transactions} />
+        </div>
       </div>
-      <div className="mt-4">
-        <TransactionTable transactions={transactions} />
-      </div>
-      <div className="mt-4">
+      <div className="w-full p-4 bg-white rounded-lg shadow-md">
+        <h2 className="text-lg font-bold mb-2">Budgeting Chart</h2>
         <BudgetingChart income={income} expenses={expenses} budget={budget} />
       </div>
     </DashboardLayout>

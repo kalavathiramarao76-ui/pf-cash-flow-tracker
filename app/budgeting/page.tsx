@@ -5,7 +5,7 @@ import { usePathname } from 'next/navigation';
 import { BudgetCategory, Transaction } from '../types';
 import BudgetForm from './budget-form';
 import BudgetTable from './budget-table';
-import { getBudgetCategories, getTransactions } from '../utils/local-storage';
+import { getBudgetCategories, getTransactions, saveTransactions } from '../utils/local-storage';
 
 export default function BudgetingPage() {
   const pathname = usePathname();
@@ -29,6 +29,25 @@ export default function BudgetingPage() {
     setBudgetCategories(updatedBudgetCategories);
     localStorage.setItem('budgetCategories', JSON.stringify(updatedBudgetCategories));
   };
+
+  const categorizeTransaction = (transaction: Transaction): Transaction => {
+    const category = budgetCategories.find(category => {
+      const keywords = category.keywords || [];
+      const description = transaction.description.toLowerCase();
+      return keywords.some(keyword => description.includes(keyword.toLowerCase()));
+    });
+    return { ...transaction, category: category?.name || 'Uncategorized' };
+  };
+
+  const handleTransactionCategorization = () => {
+    const categorizedTransactions = transactions.map(categorizeTransaction);
+    setTransactions(categorizedTransactions);
+    saveTransactions(categorizedTransactions);
+  };
+
+  useEffect(() => {
+    handleTransactionCategorization();
+  }, [budgetCategories, transactions]);
 
   return (
     <div className="flex flex-col h-screen p-4 md:p-6 lg:p-8">
