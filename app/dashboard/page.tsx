@@ -112,139 +112,115 @@ const DashboardPage = () => {
     const storedBudget = LocalStorage.get('budget');
 
     if (storedTransactions) {
-      setTransactions(JSON.parse(storedTransactions));
+      setTransactions(storedTransactions);
     }
     if (storedIncome) {
-      setIncome(JSON.parse(storedIncome));
+      setIncome(storedIncome);
     }
     if (storedExpenses) {
-      setExpenses(JSON.parse(storedExpenses));
+      setExpenses(storedExpenses);
     }
     if (storedBudget) {
-      setBudget(JSON.parse(storedBudget));
+      setBudget(storedBudget);
     }
   }, []);
 
-  useEffect(() => {
-    const labels = transactions.map((transaction: any) => transaction.date);
-    const incomeData = transactions.map((transaction: any) => transaction.income);
-    const expensesData = transactions.map((transaction: any) => transaction.expenses);
-
-    setChartData({
-      labels,
-      datasets: [
-        {
-          label: 'Income',
-          data: incomeData,
-          borderColor: 'rgb(255, 99, 132)',
-          backgroundColor: 'rgba(255, 99, 132, 0.2)',
-        },
-        {
-          label: 'Expenses',
-          data: expensesData,
-          borderColor: 'rgb(54, 162, 235)',
-          backgroundColor: 'rgba(54, 162, 235, 0.2)',
-        },
-      ],
+  const handleDateChange = (date: any) => {
+    setSelectedDate(date);
+    const filteredTransactions = transactions.filter((transaction: any) => {
+      return transaction.date === date;
     });
+    setDetailedTransactions(filteredTransactions);
+  };
 
-    const incomeDistributionData = transactions.reduce((acc: any, transaction: any) => {
-      if (!acc[transaction.incomeCategory]) {
-        acc[transaction.incomeCategory] = 0;
+  const handleChartClick = (event: any, elements: any) => {
+    if (elements.length > 0) {
+      const chartData = elements[0].dataset.data;
+      const chartLabel = elements[0].dataset.label;
+      if (chartLabel === 'Income') {
+        const incomeData = chartData[elements[0].index];
+        const incomeTransactions = transactions.filter((transaction: any) => {
+          return transaction.type === 'income' && transaction.date === selectedDate;
+        });
+        setDetailedTransactions(incomeTransactions);
+      } else if (chartLabel === 'Expenses') {
+        const expenseData = chartData[elements[0].index];
+        const expenseTransactions = transactions.filter((transaction: any) => {
+          return transaction.type === 'expense' && transaction.date === selectedDate;
+        });
+        setDetailedTransactions(expenseTransactions);
       }
-      acc[transaction.incomeCategory] += transaction.income;
-      return acc;
-    }, {});
+    }
+  };
 
-    const incomeDistributionLabels = Object.keys(incomeDistributionData);
-    const incomeDistributionValues = Object.values(incomeDistributionData);
-
-    setIncomeDistribution({
-      labels: incomeDistributionLabels,
-      datasets: [
-        {
-          label: 'Income Distribution',
-          data: incomeDistributionValues,
-          backgroundColor: [
-            'rgba(255, 99, 132, 0.2)',
-            'rgba(54, 162, 235, 0.2)',
-            'rgba(255, 206, 86, 0.2)',
-            'rgba(75, 192, 192, 0.2)',
-            'rgba(153, 102, 255, 0.2)',
-            'rgba(255, 159, 64, 0.2)',
-          ],
-          borderColor: [
-            'rgba(255, 99, 132, 1)',
-            'rgba(54, 162, 235, 1)',
-            'rgba(255, 206, 86, 1)',
-            'rgba(75, 192, 192, 1)',
-            'rgba(153, 102, 255, 1)',
-            'rgba(255, 159, 64, 1)',
-          ],
-          borderWidth: 1,
-        },
-      ],
-    });
-
-    const expenseDistributionData = transactions.reduce((acc: any, transaction: any) => {
-      if (!acc[transaction.expenseCategory]) {
-        acc[transaction.expenseCategory] = 0;
-      }
-      acc[transaction.expenseCategory] += transaction.expenses;
-      return acc;
-    }, {});
-
-    const expenseDistributionLabels = Object.keys(expenseDistributionData);
-    const expenseDistributionValues = Object.values(expenseDistributionData);
-
-    setExpenseDistribution({
-      labels: expenseDistributionLabels,
-      datasets: [
-        {
-          label: 'Expense Distribution',
-          data: expenseDistributionValues,
-          backgroundColor: [
-            'rgba(255, 99, 132, 0.2)',
-            'rgba(54, 162, 235, 0.2)',
-            'rgba(255, 206, 86, 0.2)',
-            'rgba(75, 192, 192, 0.2)',
-            'rgba(153, 102, 255, 0.2)',
-            'rgba(255, 159, 64, 0.2)',
-          ],
-          borderColor: [
-            'rgba(255, 99, 132, 1)',
-            'rgba(54, 162, 235, 1)',
-            'rgba(255, 206, 86, 1)',
-            'rgba(75, 192, 192, 1)',
-            'rgba(153, 102, 255, 1)',
-            'rgba(255, 159, 64, 1)',
-          ],
-          borderWidth: 1,
-        },
-      ],
-    });
-  }, [transactions]);
-
-  const handleAddTransaction = (transaction: any) => {
-    setTransactions((prevTransactions) => [...prevTransactions, transaction]);
-    LocalStorage.set('transactions', JSON.stringify([...transactions, transaction]));
+  const options = {
+    responsive: true,
+    plugins: {
+      legend: {
+        position: 'top' as const,
+      },
+      title: {
+        display: true,
+        text: 'Cash Flow Chart',
+      },
+    },
+    interaction: {
+      mode: 'nearest',
+      intersect: false,
+      axis: 'xy',
+    },
+    scales: {
+      y: {
+        beginAtZero: true,
+      },
+    },
   };
 
   return (
     <DashboardLayout>
       <OverviewCard income={income} expenses={expenses} budget={budget} />
-      <TransactionTable transactions={transactions} />
-      <BudgetingChart chartData={chartData} />
-      <div className="row">
-        <div className="col-md-6">
-          <h2>Income Distribution</h2>
-          <Pie data={incomeDistribution} />
-        </div>
-        <div className="col-md-6">
-          <h2>Expense Distribution</h2>
-          <Pie data={expenseDistribution} />
-        </div>
+      <div className="chart-container">
+        <Line
+          data={chartData}
+          options={options}
+          onClick={(event, elements) => handleChartClick(event, elements)}
+        />
       </div>
+      <div className="chart-container">
+        <Pie
+          data={incomeDistribution}
+          options={{
+            responsive: true,
+            plugins: {
+              legend: {
+                position: 'top' as const,
+              },
+              title: {
+                display: true,
+                text: 'Income Distribution',
+              },
+            },
+          }}
+        />
+      </div>
+      <div className="chart-container">
+        <Pie
+          data={expenseDistribution}
+          options={{
+            responsive: true,
+            plugins: {
+              legend: {
+                position: 'top' as const,
+              },
+              title: {
+                display: true,
+                text: 'Expense Distribution',
+              },
+            },
+          }}
+        />
+      </div>
+      <TransactionTable transactions={detailedTransactions} />
     </DashboardLayout>
   );
 };

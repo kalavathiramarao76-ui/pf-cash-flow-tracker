@@ -20,14 +20,19 @@ export default function ExpensesPage() {
         setInitialLoad(false);
       }
       setLoading(true);
-      const expensesResponse = await getExpenses(pageNumber, itemsPerPage);
-      if (pageNumber === 1) {
-        setExpenses(expensesResponse.expenses);
-      } else {
-        setExpenses((prevExpenses) => [...prevExpenses, ...expensesResponse.expenses]);
+      try {
+        const expensesResponse = await getExpenses(pageNumber, itemsPerPage);
+        if (pageNumber === 1) {
+          setExpenses(expensesResponse.expenses);
+        } else {
+          setExpenses((prevExpenses) => [...prevExpenses, ...expensesResponse.expenses]);
+        }
+        setHasMoreExpenses(expensesResponse.hasMore);
+      } catch (error) {
+        console.error('Error fetching expenses:', error);
+      } finally {
+        setLoading(false);
       }
-      setHasMoreExpenses(expensesResponse.hasMore);
-      setLoading(false);
     };
     if (initialLoad || pageNumber > 1) {
       fetchExpenses();
@@ -35,13 +40,21 @@ export default function ExpensesPage() {
   }, [pageNumber, itemsPerPage, initialLoad]);
 
   const handleAddExpense = async (expense: Expense) => {
-    await addExpense(expense);
-    setExpenses([...expenses, expense]);
+    try {
+      await addExpense(expense);
+      setExpenses([...expenses, expense]);
+    } catch (error) {
+      console.error('Error adding expense:', error);
+    }
   };
 
   const handleDeleteExpense = async (id: string) => {
-    await deleteExpense(id);
-    setExpenses(expenses.filter((expense) => expense.id !== id));
+    try {
+      await deleteExpense(id);
+      setExpenses(expenses.filter((expense) => expense.id !== id));
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+    }
   };
 
   const handleLoadMore = () => {
@@ -68,6 +81,7 @@ export default function ExpensesPage() {
         <button
           className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
           onClick={handleLoadMore}
+          disabled={loading}
         >
           Load More
         </button>

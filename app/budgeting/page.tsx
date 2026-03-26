@@ -75,25 +75,45 @@ export default function BudgetingPage() {
     saveTransactions(categorizedTransactions);
   };
 
+  const suggestBudgetCategories = (transactions: Transaction[]) => {
+    const categorySuggestions: BudgetCategory[] = [];
+    const transactionAmounts: { [key: string]: number } = {};
+
+    transactions.forEach((transaction) => {
+      if (transaction.category) {
+        if (transactionAmounts[transaction.category]) {
+          transactionAmounts[transaction.category] += transaction.amount;
+        } else {
+          transactionAmounts[transaction.category] = transaction.amount;
+        }
+      }
+    });
+
+    Object.keys(transactionAmounts).forEach((category) => {
+      const amount = transactionAmounts[category];
+      const suggestedCategory: BudgetCategory = {
+        name: category,
+        budget: amount * 0.8, // suggest 80% of the total amount for the category
+      };
+      categorySuggestions.push(suggestedCategory);
+    });
+
+    return categorySuggestions;
+  };
+
   return (
     <div>
       <BudgetForm
         budgetCategories={budgetCategories}
-        onBudgetSubmit={handleBudgetSubmit}
+        handleBudgetSubmit={handleBudgetSubmit}
+        suggestedCategories={suggestedCategories}
       />
       <BudgetTable
         transactions={transactions}
         budgetCategories={budgetCategories}
-        onCategoryChange={handleCategoryChange}
-        selectedCategory={selectedCategory}
-        suggestedCategories={suggestedCategories}
-        onTransactionCategorization={handleTransactionCategorization}
+        handleCategoryChange={handleCategoryChange}
+        handleTransactionCategorization={handleTransactionCategorization}
       />
     </div>
   );
-}
-
-function suggestBudgetCategories(transactions: Transaction[]): BudgetCategory[] {
-  // implement logic to suggest budget categories based on transactions
-  return [];
 }
