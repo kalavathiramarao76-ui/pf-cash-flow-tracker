@@ -118,12 +118,8 @@ const DashboardPage = () => {
     },
   });
 
-  const handleChartTypeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+  const handleChartTypeChange = (event: any) => {
     setChartType(event.target.value);
-  };
-
-  const handleDateChange = (date: Date) => {
-    setSelectedDate(date);
   };
 
   useEffect(() => {
@@ -165,22 +161,20 @@ const DashboardPage = () => {
     if (transactions.length > 0) {
       const incomeDistributionData = transactions
         .filter((transaction) => transaction.type === 'income')
-        .reduce((acc, transaction) => {
-          const category = transaction.category;
-          if (!acc[category]) {
-            acc[category] = 0;
+        .reduce((acc: any, transaction: any) => {
+          if (!acc[transaction.category]) {
+            acc[transaction.category] = 0;
           }
-          acc[category] += transaction.amount;
+          acc[transaction.category] += transaction.amount;
           return acc;
         }, {});
       const expenseDistributionData = transactions
         .filter((transaction) => transaction.type === 'expense')
-        .reduce((acc, transaction) => {
-          const category = transaction.category;
-          if (!acc[category]) {
-            acc[category] = 0;
+        .reduce((acc: any, transaction: any) => {
+          if (!acc[transaction.category]) {
+            acc[transaction.category] = 0;
           }
-          acc[category] += transaction.amount;
+          acc[transaction.category] += transaction.amount;
           return acc;
         }, {});
       setIncomeDistribution({
