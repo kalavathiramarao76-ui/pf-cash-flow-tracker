@@ -83,43 +83,53 @@ export default function BudgetingPage() {
       model.add(embeddingLayer);
       model.add(sequenceLayer);
       model.add(denseLayer);
-      const input = tf.tensor2d([transaction.description.split(' ').map((word) => word.charCodeAt(0))]);
-      const output = model.predict(input);
-      const predictedCategoryIndex = tf.argMax(output, 1).dataSync()[0];
-      const predictedCategory = budgetCategories[predictedCategoryIndex];
-      return { ...transaction, category: predictedCategory };
+      const predictions = model.predict(tf.tensor2d([transaction.description.split(' ')]));
+      const predictedCategoryIndex = predictions.argMax(1).dataSync()[0];
+      transaction.category = budgetCategories[predictedCategoryIndex].name;
+      return transaction;
     }
     return transaction;
   };
 
-  const trainModel = async () => {
-    if (mlModel) {
-      const trainingInputs = trainingData.map((transaction) => transaction.description.split(' ').map((word) => word.charCodeAt(0)));
-      const trainingOutputs = trainingData.map((transaction) => budgetCategories.indexOf(transaction.category));
-      const validationInputs = validationData.map((transaction) => transaction.description.split(' ').map((word) => word.charCodeAt(0)));
-      const validationOutputs = validationData.map((transaction) => budgetCategories.indexOf(transaction.category));
-      const trainingInputTensor = tf.tensor2d(trainingInputs);
-      const trainingOutputTensor = tf.tensor1d(trainingOutputs);
-      const validationInputTensor = tf.tensor2d(validationInputs);
-      const validationOutputTensor = tf.tensor1d(validationOutputs);
-      await mlModel.fit(trainingInputTensor, trainingOutputTensor, {
-        epochs: 100,
-        validationData: [validationInputTensor, validationOutputTensor],
-      });
-      const accuracy = mlModel.evaluate(validationInputTensor, validationOutputTensor);
-      setModelAccuracy(accuracy);
-    }
-  };
-
-  const suggestBudgetCategories = (transactions: Transaction[]) => {
-    const suggestedCategories: BudgetCategory[] = [];
+  const suggestBudgetCategories = (transactions: Transaction[]): BudgetCategory[] => {
+    const categories: BudgetCategory[] = [];
+    const categoryCounts: { [category: string]: number } = {};
     transactions.forEach((transaction) => {
-      const predictedCategory = categorizeTransaction(transaction);
-      if (!suggestedCategories.includes(predictedCategory.category)) {
-        suggestedCategories.push(predictedCategory.category);
+      const category = categorizeTransaction(transaction).category;
+      if (categoryCounts[category]) {
+        categoryCounts[category]++;
+      } else {
+        categoryCounts[category] = 1;
       }
     });
-    return suggestedCategories;
+    Object.keys(categoryCounts).forEach((category) => {
+      const count = categoryCounts[category];
+      const percentage = (count / transactions.length) * 100;
+      categories.push({
+        name: category,
+        budget: percentage,
+      });
+    });
+    return categories;
+  };
+
+  const trainModel = async () => {
+    if (mlModel) {
+      const trainingInputs = trainingData.map((transaction) => transaction.description.split(' '));
+      const trainingLabels = trainingData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
+      const validationInputs = validationData.map((transaction) => transaction.description.split(' '));
+      const validationLabels = validationData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
+      const trainingTensor = tf.tensor2d(trainingInputs, [trainingInputs.length, trainingInputs[0].length]);
+      const trainingLabelTensor = tf.tensor1d(trainingLabels, 'int32');
+      const validationTensor = tf.tensor2d(validationInputs, [validationInputs.length, validationInputs[0].length]);
+      const validationLabelTensor = tf.tensor1d(validationLabels, 'int32');
+      await mlModel.fit(trainingTensor, trainingLabelTensor, {
+        epochs: 100,
+        validationData: [validationTensor, validationLabelTensor],
+      });
+      const accuracy = mlModel.evaluate(validationTensor, validationLabelTensor);
+      setModelAccuracy(accuracy);
+    }
   };
 
   return (
@@ -127,12 +137,13 @@ export default function BudgetingPage() {
       <BudgetForm
         budgetCategories={budgetCategories}
         handleBudgetSubmit={handleBudgetSubmit}
+        suggestedCategories={suggestedCategories}
       />
       <BudgetTable
         transactions={transactions}
         budgetCategories={budgetCategories}
-        selectedCategory={selectedCategory}
         handleCategoryChange={handleCategoryChange}
+        selectedCategory={selectedCategory}
       />
     </div>
   );
