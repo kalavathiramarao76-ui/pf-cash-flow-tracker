@@ -116,14 +116,35 @@ const DashboardPage = () => {
         text: 'Cash Flow Chart',
       },
     },
+    interaction: {
+      intersect: false,
+    },
+    scales: {
+      x: {
+        display: true,
+        title: {
+          display: true,
+          text: 'Date',
+        },
+      },
+      y: {
+        display: true,
+        title: {
+          display: true,
+          text: 'Amount',
+        },
+      },
+    },
   });
 
-  const handleChartTypeChange = (event: any) => {
-    setChartType(event.target.value);
+  const handleChartTypeChange = (type: string) => {
+    setChartType(type);
   };
 
-  const handleDateChange = (date: any) => {
+  const handleDateSelect = (date: string) => {
     setSelectedDate(date);
+    const filteredTransactions = transactions.filter((transaction) => transaction.date === date);
+    setDetailedTransactions(filteredTransactions);
   };
 
   useEffect(() => {
@@ -136,13 +157,15 @@ const DashboardPage = () => {
   useEffect(() => {
     if (transactions.length > 0) {
       const incomeData = transactions
-        .filter((transaction: any) => transaction.type === 'income')
-        .map((transaction: any) => transaction.amount);
-      const expensesData = transactions
-        .filter((transaction: any) => transaction.type === 'expense')
-        .map((transaction: any) => transaction.amount);
+        .filter((transaction) => transaction.type === 'income')
+        .map((transaction) => transaction.amount);
+      const expenseData = transactions
+        .filter((transaction) => transaction.type === 'expense')
+        .map((transaction) => transaction.amount);
+      const labels = transactions.map((transaction) => transaction.date);
+
       setChartData({
-        labels: transactions.map((transaction: any) => transaction.date),
+        labels,
         datasets: [
           {
             label: 'Income',
@@ -152,35 +175,35 @@ const DashboardPage = () => {
           },
           {
             label: 'Expenses',
-            data: expensesData,
+            data: expenseData,
             borderColor: 'rgb(54, 162, 235)',
             backgroundColor: 'rgba(54, 162, 235, 0.2)',
           },
         ],
       });
-    }
-  }, [transactions]);
 
-  useEffect(() => {
-    if (transactions.length > 0) {
       const incomeDistributionData = transactions
-        .filter((transaction: any) => transaction.type === 'income')
-        .reduce((acc: any, transaction: any) => {
-          if (!acc[transaction.category]) {
-            acc[transaction.category] = 0;
+        .filter((transaction) => transaction.type === 'income')
+        .reduce((acc, transaction) => {
+          const category = transaction.category;
+          if (!acc[category]) {
+            acc[category] = 0;
           }
-          acc[transaction.category] += transaction.amount;
+          acc[category] += transaction.amount;
           return acc;
         }, {});
+
       const expenseDistributionData = transactions
-        .filter((transaction: any) => transaction.type === 'expense')
-        .reduce((acc: any, transaction: any) => {
-          if (!acc[transaction.category]) {
-            acc[transaction.category] = 0;
+        .filter((transaction) => transaction.type === 'expense')
+        .reduce((acc, transaction) => {
+          const category = transaction.category;
+          if (!acc[category]) {
+            acc[category] = 0;
           }
-          acc[transaction.category] += transaction.amount;
+          acc[category] += transaction.amount;
           return acc;
         }, {});
+
       setIncomeDistribution({
         labels: Object.keys(incomeDistributionData),
         datasets: [
@@ -207,6 +230,7 @@ const DashboardPage = () => {
           },
         ],
       });
+
       setExpenseDistribution({
         labels: Object.keys(expenseDistributionData),
         datasets: [
@@ -238,34 +262,42 @@ const DashboardPage = () => {
 
   return (
     <DashboardLayout>
-      <OverviewCard
-        income={income}
-        expenses={expenses}
-        budget={budget}
-      />
+      <OverviewCard income={income} expenses={expenses} budget={budget} />
       <div className="chart-container">
-        <select value={chartType} onChange={handleChartTypeChange}>
-          <option value="line">Line Chart</option>
-          <option value="bar">Bar Chart</option>
-          <option value="pie">Pie Chart</option>
-        </select>
-        {chartType === 'line' && (
+        {chartType === 'line' ? (
           <Line options={chartOptions} data={chartData} />
-        )}
-        {chartType === 'bar' && (
+        ) : chartType === 'bar' ? (
           <Bar options={chartOptions} data={chartData} />
-        )}
-        {chartType === 'pie' && (
+        ) : (
           <Pie options={chartOptions} data={chartData} />
         )}
+        <div className="chart-type-selector">
+          <button onClick={() => handleChartTypeChange('line')}>Line</button>
+          <button onClick={() => handleChartTypeChange('bar')}>Bar</button>
+          <button onClick={() => handleChartTypeChange('pie')}>Pie</button>
+        </div>
       </div>
-      <div className="distribution-container">
-        <h2>Income Distribution</h2>
-        <Pie data={incomeDistribution} />
-        <h2>Expense Distribution</h2>
-        <Pie data={expenseDistribution} />
+      <div className="distribution-charts">
+        <div className="income-distribution-chart">
+          <Pie options={chartOptions} data={incomeDistribution} />
+        </div>
+        <div className="expense-distribution-chart">
+          <Pie options={chartOptions} data={expenseDistribution} />
+        </div>
       </div>
-      <TransactionTable transactions={transactions} />
+      <TransactionTable transactions={transactions} handleDateSelect={handleDateSelect} />
+      {selectedDate && (
+        <div className="detailed-transactions">
+          <h2>Detailed Transactions for {selectedDate}</h2>
+          <ul>
+            {detailedTransactions.map((transaction) => (
+              <li key={transaction.id}>
+                {transaction.type} - {transaction.amount} - {transaction.category}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </DashboardLayout>
   );
 };

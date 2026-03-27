@@ -77,6 +77,26 @@ export default function ExpensesPage() {
     }
   };
 
+  const handleIntersection = useCallback(async (entries: IntersectionObserverEntry[]) => {
+    if (entries[0].isIntersecting && hasMoreExpenses && !loading) {
+      setPageNumber((prevPageNumber) => prevPageNumber + 1);
+    }
+  }, [hasMoreExpenses, loading]);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(handleIntersection, {
+      rootMargin: '100px',
+    });
+    if (loadMoreRef.current) {
+      observer.observe(loadMoreRef.current);
+    }
+    return () => {
+      if (loadMoreRef.current) {
+        observer.unobserve(loadMoreRef.current);
+      }
+    };
+  }, [handleIntersection]);
+
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6 lg:p-8">
       <h1 className="text-3xl font-bold mb-4">Expenses</h1>
@@ -84,10 +104,12 @@ export default function ExpensesPage() {
         <p>Loading...</p>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {expenses.map((expense, index) => (
+          {expenses.map((expense) => (
             <ExpenseCard key={expense.id} expense={expense} onDelete={handleDeleteExpense} />
           ))}
-          {hasMoreExpenses && <div ref={loadMoreRef} />}
+          {hasMoreExpenses && (
+            <div ref={loadMoreRef} className="h-1 w-full bg-transparent" />
+          )}
         </div>
       )}
       <AddExpenseForm onAdd={handleAddExpense} />

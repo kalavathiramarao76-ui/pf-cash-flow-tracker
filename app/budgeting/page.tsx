@@ -83,29 +83,23 @@ export default function BudgetingPage() {
       model.add(embeddingLayer);
       model.add(sequenceLayer);
       model.add(denseLayer);
-      const prediction = model.predict(tf.tensor2d([transaction.description.split(' ')]));
-      const predictedCategoryIndex = tf.argMax(prediction, 1).dataSync()[0];
-      const predictedCategory = budgetCategories[predictedCategoryIndex];
-      return { ...transaction, category: predictedCategory.name };
+      const predictions = model.predict(tf.tensor2d([transaction.description.split(' ')]));
+      const predictedCategoryIndex = tf.argMax(predictions, 1).dataSync()[0];
+      transaction.category = budgetCategories[predictedCategoryIndex].name;
+      return transaction;
     }
     return transaction;
   };
 
   const suggestBudgetCategories = (transactions: Transaction[]): BudgetCategory[] => {
     const categories: BudgetCategory[] = [];
-    const categoryCounts: { [category: string]: number } = {};
     transactions.forEach((transaction) => {
-      const category = categorizeTransaction(transaction).category;
-      if (categoryCounts[category]) {
-        categoryCounts[category]++;
-      } else {
-        categoryCounts[category] = 1;
+      if (!categories.find((category) => category.name === transaction.category)) {
+        categories.push({
+          name: transaction.category,
+          amount: transactions.filter((t) => t.category === transaction.category).reduce((acc, t) => acc + t.amount, 0),
+        });
       }
-    });
-    Object.keys(categoryCounts).forEach((category) => {
-      const count = categoryCounts[category];
-      const percentage = (count / transactions.length) * 100;
-      categories.push({ name: category, percentage });
     });
     return categories;
   };
@@ -113,25 +107,19 @@ export default function BudgetingPage() {
   const trainModel = async () => {
     if (mlModel) {
       const trainingInputs = trainingData.map((transaction) => transaction.description.split(' '));
-      const trainingOutputs = trainingData.map((transaction) => {
-        const categoryIndex = budgetCategories.findIndex((category) => category.name === transaction.category);
-        return categoryIndex !== -1 ? categoryIndex : 0;
-      });
+      const trainingLabels = trainingData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
       const validationInputs = validationData.map((transaction) => transaction.description.split(' '));
-      const validationOutputs = validationData.map((transaction) => {
-        const categoryIndex = budgetCategories.findIndex((category) => category.name === transaction.category);
-        return categoryIndex !== -1 ? categoryIndex : 0;
-      });
-      const inputs = tf.tensor2d(trainingInputs);
-      const outputs = tf.tensor1d(trainingOutputs, 'int32');
-      const validationInputsTensor = tf.tensor2d(validationInputs);
-      const validationOutputsTensor = tf.tensor1d(validationOutputs, 'int32');
-      await mlModel.fit(inputs, outputs, {
+      const validationLabels = validationData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
+      const xs = tf.tensor2d(trainingInputs);
+      const ys = tf.tensor1d(trainingLabels);
+      const xsValidation = tf.tensor2d(validationInputs);
+      const ysValidation = tf.tensor1d(validationLabels);
+      await mlModel.fit(xs, ys, {
         epochs: 100,
-        validationData: [validationInputsTensor, validationOutputsTensor],
+        validationData: [xsValidation, ysValidation],
       });
-      const accuracy = mlModel.evaluate(validationInputsTensor, validationOutputsTensor);
-      setModelAccuracy(accuracy);
+      const accuracy = await mlModel.evaluate(xsValidation, ysValidation);
+      setModelAccuracy(accuracy.accuracy);
     }
   };
 
@@ -147,14 +135,18 @@ export default function BudgetingPage() {
         selectedCategory={selectedCategory}
         handleCategoryChange={handleCategoryChange}
       />
-      <h2>Suggested Budget Categories</h2>
-      <ul>
-        {suggestedCategories.map((category) => (
-          <li key={category.name}>
-            {category.name} ({category.percentage}%)
-          </li>
-        ))}
-      </ul>
+      {suggestedCategories.length > 0 && (
+        <div>
+          <h2>Suggested Budget Categories</h2>
+          <ul>
+            {suggestedCategories.map((category) => (
+              <li key={category.name}>
+                {category.name}: {category.amount}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }
