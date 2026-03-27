@@ -83,20 +83,17 @@ export default function ExpensesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {expenses.slice(0, itemsPerPage * pageNumber).map((expense) => (
-            <ExpenseCard
-              key={expense.id}
-              expense={expense}
-              onDelete={() => handleDeleteExpense(expense.id)}
-            />
+            <ExpenseCard key={expense.id} expense={expense} onDelete={handleDeleteExpense} />
           ))}
-          {loading && pageNumber > 1 && (
-            <div>Loading more expenses...</div>
+          {hasMoreExpenses && !loading && (
+            <div ref={loadMoreRef} className="w-full h-1 bg-gray-200" />
           )}
-          {hasMoreExpenses && (
-            <div ref={loadMoreRef} />
+          {loading && pageNumber > 1 && (
+            <p>Loading more expenses...</p>
           )}
         </div>
       )}
+      <AddExpenseForm onAdd={handleAddExpense} />
     </div>
   );
 }
