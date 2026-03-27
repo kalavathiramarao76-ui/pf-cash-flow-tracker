@@ -113,27 +113,7 @@ const DashboardPage = () => {
       },
       title: {
         display: true,
-        text: 'Cash Flow Chart',
-      },
-    },
-    interaction: {
-      mode: 'index',
-      intersect: false,
-    },
-    scales: {
-      x: {
-        display: true,
-        title: {
-          display: true,
-          text: 'Date',
-        },
-      },
-      y: {
-        display: true,
-        title: {
-          display: true,
-          text: 'Amount',
-        },
+        text: 'Financial Overview',
       },
     },
   });
@@ -147,7 +127,7 @@ const DashboardPage = () => {
   };
 
   useEffect(() => {
-    const storedTransactions = LocalStorage.getTransactions();
+    const storedTransactions = LocalStorage.get('transactions');
     if (storedTransactions) {
       setTransactions(storedTransactions);
     }
@@ -158,7 +138,7 @@ const DashboardPage = () => {
       const incomeData = transactions
         .filter((transaction: any) => transaction.type === 'income')
         .map((transaction: any) => transaction.amount);
-      const expenseData = transactions
+      const expensesData = transactions
         .filter((transaction: any) => transaction.type === 'expense')
         .map((transaction: any) => transaction.amount);
       setChartData({
@@ -172,41 +152,40 @@ const DashboardPage = () => {
           },
           {
             label: 'Expenses',
-            data: expenseData,
+            data: expensesData,
             borderColor: 'rgb(54, 162, 235)',
             backgroundColor: 'rgba(54, 162, 235, 0.2)',
           },
         ],
       });
+      setIncome(incomeData.reduce((a: any, b: any) => a + b, 0));
+      setExpenses(expensesData.reduce((a: any, b: any) => a + b, 0));
     }
   }, [transactions]);
 
   useEffect(() => {
-    if (transactions.length > 0) {
-      const incomeDistributionData = transactions
+    if (selectedDate) {
+      const filteredTransactions = transactions.filter(
+        (transaction: any) => transaction.date === selectedDate
+      );
+      setDetailedTransactions(filteredTransactions);
+    }
+  }, [selectedDate, transactions]);
+
+  useEffect(() => {
+    if (detailedTransactions.length > 0) {
+      const incomeDistributionData = detailedTransactions
         .filter((transaction: any) => transaction.type === 'income')
-        .reduce((acc: any, transaction: any) => {
-          if (!acc[transaction.category]) {
-            acc[transaction.category] = 0;
-          }
-          acc[transaction.category] += transaction.amount;
-          return acc;
-        }, {});
-      const expenseDistributionData = transactions
+        .map((transaction: any) => transaction.amount);
+      const expenseDistributionData = detailedTransactions
         .filter((transaction: any) => transaction.type === 'expense')
-        .reduce((acc: any, transaction: any) => {
-          if (!acc[transaction.category]) {
-            acc[transaction.category] = 0;
-          }
-          acc[transaction.category] += transaction.amount;
-          return acc;
-        }, {});
+        .map((transaction: any) => transaction.amount);
       setIncomeDistribution({
-        labels: Object.keys(incomeDistributionData),
+        labels: ['Income'],
         datasets: [
           {
             label: 'Income Distribution',
-            data: Object.values(incomeDistributionData),
+            data: incomeDistributionData,
             backgroundColor: [
               'rgba(255, 99, 132, 0.2)',
               'rgba(54, 162, 235, 0.2)',
@@ -228,11 +207,11 @@ const DashboardPage = () => {
         ],
       });
       setExpenseDistribution({
-        labels: Object.keys(expenseDistributionData),
+        labels: ['Expenses'],
         datasets: [
           {
             label: 'Expense Distribution',
-            data: Object.values(expenseDistributionData),
+            data: expenseDistributionData,
             backgroundColor: [
               'rgba(255, 99, 132, 0.2)',
               'rgba(54, 162, 235, 0.2)',
@@ -254,7 +233,7 @@ const DashboardPage = () => {
         ],
       });
     }
-  }, [transactions]);
+  }, [detailedTransactions]);
 
   return (
     <DashboardLayout>
@@ -277,9 +256,9 @@ const DashboardPage = () => {
       </div>
       <div className="distribution-container">
         <h2>Income Distribution</h2>
-        <Pie options={chartOptions} data={incomeDistribution} />
+        <Pie data={incomeDistribution} />
         <h2>Expense Distribution</h2>
-        <Pie options={chartOptions} data={expenseDistribution} />
+        <Pie data={expenseDistribution} />
       </div>
       <TransactionTable
         transactions={transactions}
