@@ -83,16 +83,12 @@ export default function ExpensesPage() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {expenses.map((expense, index) => (
-            <ExpenseCard
-              key={expense.id}
-              expense={expense}
-              onDelete={() => handleDeleteExpense(expense.id)}
-            />
+            <ExpenseCard key={expense.id} expense={expense} onDelete={handleDeleteExpense} />
           ))}
-          {hasMoreExpenses && (
+          {hasMoreExpenses && !loading && (
             <div ref={loadMoreRef} className="w-full h-10" />
           )}
-          {loading && hasMoreExpenses && (
+          {loading && pageNumber > 1 && (
             <p>Loading more expenses...</p>
           )}
         </div>
