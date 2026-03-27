@@ -83,8 +83,8 @@ export default function BudgetingPage() {
       model.add(embeddingLayer);
       model.add(sequenceLayer);
       model.add(denseLayer);
-      const prediction = model.predict(tf.tensor2d([transaction.description.split(' ')]));
-      const predictedCategoryIndex = prediction.argMax(1).dataSync()[0];
+      const predictions = model.predict(tf.tensor2d([transaction.description.split(' ')]));
+      const predictedCategoryIndex = tf.argMax(predictions, 1).dataSync()[0];
       const predictedCategory = budgetCategories[predictedCategoryIndex];
       return { ...transaction, category: predictedCategory.name };
     }
@@ -94,41 +94,50 @@ export default function BudgetingPage() {
   const trainModel = async () => {
     if (mlModel) {
       const trainingInputs = trainingData.map((transaction) => transaction.description.split(' '));
-      const trainingOutputs = trainingData.map((transaction) => {
-        const categoryIndex = budgetCategories.findIndex((category) => category.name === transaction.category);
-        return categoryIndex !== -1 ? categoryIndex : 0;
-      });
+      const trainingLabels = trainingData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
       const validationInputs = validationData.map((transaction) => transaction.description.split(' '));
-      const validationOutputs = validationData.map((transaction) => {
-        const categoryIndex = budgetCategories.findIndex((category) => category.name === transaction.category);
-        return categoryIndex !== -1 ? categoryIndex : 0;
+      const validationLabels = validationData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
+      const xs = tf.tensor2d(trainingInputs);
+      const ys = tf.tensor1d(trainingLabels);
+      const valXs = tf.tensor2d(validationInputs);
+      const valYs = tf.tensor1d(validationLabels);
+      await mlModel.fit(xs, ys, {
+        epochs: 100,
+        validationData: [valXs, valYs],
+        callbacks: {
+          onEpochEnd: (epoch, logs) => {
+            console.log(`Epoch ${epoch + 1}: Loss = ${logs.loss.toFixed(4)}, Validation Loss = ${logs.val_loss.toFixed(4)}`);
+          },
+        },
       });
-      await mlModel.fit(
-        tf.tensor2d(trainingInputs),
-        tf.tensor1d(trainingOutputs, 'int32'),
-        {
-          epochs: 100,
-          validationData: [tf.tensor2d(validationInputs), tf.tensor1d(validationOutputs, 'int32')],
-        }
-      );
-      const accuracy = mlModel.evaluate(tf.tensor2d(validationInputs), tf.tensor1d(validationOutputs, 'int32'));
-      setModelAccuracy(accuracy.accuracy.dataSync()[0]);
+      const accuracy = await mlModel.evaluate(valXs, valYs);
+      setModelAccuracy(accuracy.accuracy);
     }
   };
 
-  const suggestBudgetCategories = (transactions: Transaction[]) => {
-    if (mlModel) {
-      const categorizedTransactions = transactions.map((transaction) => categorizeTransaction(transaction));
-      const suggestedCategories = Array.from(new Set(categorizedTransactions.map((transaction) => transaction.category)));
-      return suggestedCategories.map((category) => ({ name: category }));
-    }
-    return [];
+  const suggestBudgetCategories = (transactions: Transaction[]): BudgetCategory[] => {
+    const suggestedCategories: BudgetCategory[] = [];
+    transactions.forEach((transaction) => {
+      const predictedCategory = categorizeTransaction(transaction);
+      if (!suggestedCategories.find((category) => category.name === predictedCategory.category)) {
+        suggestedCategories.push({ name: predictedCategory.category, amount: 0 });
+      }
+    });
+    return suggestedCategories;
   };
 
   return (
     <div>
-      <BudgetForm onSubmit={handleBudgetSubmit} />
-      <BudgetTable transactions={transactions} categories={budgetCategories} onCategoryChange={handleCategoryChange} />
+      <BudgetForm
+        budgetCategories={budgetCategories}
+        handleBudgetSubmit={handleBudgetSubmit}
+      />
+      <BudgetTable
+        transactions={transactions}
+        budgetCategories={budgetCategories}
+        selectedCategory={selectedCategory}
+        handleCategoryChange={handleCategoryChange}
+      />
     </div>
   );
 }
