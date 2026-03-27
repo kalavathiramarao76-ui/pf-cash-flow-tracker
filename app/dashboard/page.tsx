@@ -122,22 +122,18 @@ const DashboardPage = () => {
     setChartType(event.target.value);
   };
 
-  const handleDateChange = (date: any) => {
-    setSelectedDate(date);
-  };
-
   useEffect(() => {
     const storedTransactions = LocalStorage.getTransactions();
     if (storedTransactions) {
       setTransactions(storedTransactions);
-      const income = storedTransactions.reduce((acc: any, transaction: any) => {
+      const income = storedTransactions.reduce((acc, transaction) => {
         if (transaction.type === 'income') {
           return acc + transaction.amount;
         }
         return acc;
       }, 0);
       setIncome(income);
-      const expenses = storedTransactions.reduce((acc: any, transaction: any) => {
+      const expenses = storedTransactions.reduce((acc, transaction) => {
         if (transaction.type === 'expense') {
           return acc + transaction.amount;
         }
@@ -147,11 +143,11 @@ const DashboardPage = () => {
       const budget = income - expenses;
       setBudget(budget);
       const chartData = {
-        labels: storedTransactions.map((transaction: any) => transaction.date),
+        labels: storedTransactions.map((transaction) => transaction.date),
         datasets: [
           {
             label: 'Income',
-            data: storedTransactions.map((transaction: any) => {
+            data: storedTransactions.map((transaction) => {
               if (transaction.type === 'income') {
                 return transaction.amount;
               }
@@ -162,7 +158,7 @@ const DashboardPage = () => {
           },
           {
             label: 'Expenses',
-            data: storedTransactions.map((transaction: any) => {
+            data: storedTransactions.map((transaction) => {
               if (transaction.type === 'expense') {
                 return transaction.amount;
               }
@@ -174,68 +170,6 @@ const DashboardPage = () => {
         ],
       };
       setChartData(chartData);
-      const incomeDistribution = {
-        labels: storedTransactions
-          .filter((transaction: any) => transaction.type === 'income')
-          .map((transaction: any) => transaction.category),
-        datasets: [
-          {
-            label: 'Income Distribution',
-            data: storedTransactions
-              .filter((transaction: any) => transaction.type === 'income')
-              .map((transaction: any) => transaction.amount),
-            backgroundColor: [
-              'rgba(255, 99, 132, 0.2)',
-              'rgba(54, 162, 235, 0.2)',
-              'rgba(255, 206, 86, 0.2)',
-              'rgba(75, 192, 192, 0.2)',
-              'rgba(153, 102, 255, 0.2)',
-              'rgba(255, 159, 64, 0.2)',
-            ],
-            borderColor: [
-              'rgba(255, 99, 132, 1)',
-              'rgba(54, 162, 235, 1)',
-              'rgba(255, 206, 86, 1)',
-              'rgba(75, 192, 192, 1)',
-              'rgba(153, 102, 255, 1)',
-              'rgba(255, 159, 64, 1)',
-            ],
-            borderWidth: 1,
-          },
-        ],
-      };
-      setIncomeDistribution(incomeDistribution);
-      const expenseDistribution = {
-        labels: storedTransactions
-          .filter((transaction: any) => transaction.type === 'expense')
-          .map((transaction: any) => transaction.category),
-        datasets: [
-          {
-            label: 'Expense Distribution',
-            data: storedTransactions
-              .filter((transaction: any) => transaction.type === 'expense')
-              .map((transaction: any) => transaction.amount),
-            backgroundColor: [
-              'rgba(255, 99, 132, 0.2)',
-              'rgba(54, 162, 235, 0.2)',
-              'rgba(255, 206, 86, 0.2)',
-              'rgba(75, 192, 192, 0.2)',
-              'rgba(153, 102, 255, 0.2)',
-              'rgba(255, 159, 64, 0.2)',
-            ],
-            borderColor: [
-              'rgba(255, 99, 132, 1)',
-              'rgba(54, 162, 235, 1)',
-              'rgba(255, 206, 86, 1)',
-              'rgba(75, 192, 192, 1)',
-              'rgba(153, 102, 255, 1)',
-              'rgba(255, 159, 64, 1)',
-            ],
-            borderWidth: 1,
-          },
-        ],
-      };
-      setExpenseDistribution(expenseDistribution);
     }
   }, []);
 
@@ -258,13 +192,11 @@ const DashboardPage = () => {
           <Pie options={chartOptions} data={chartData} />
         )}
       </div>
-      <div className="distribution-container">
-        <h2>Income Distribution</h2>
-        <Pie data={incomeDistribution} />
-        <h2>Expense Distribution</h2>
-        <Pie data={expenseDistribution} />
-      </div>
       <TransactionTable transactions={transactions} />
+      <BudgetingChart
+        incomeDistribution={incomeDistribution}
+        expenseDistribution={expenseDistribution}
+      />
     </DashboardLayout>
   );
 };

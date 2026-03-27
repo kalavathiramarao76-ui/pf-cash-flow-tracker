@@ -85,31 +85,10 @@ export default function BudgetingPage() {
       model.add(denseLayer);
       const prediction = model.predict(tf.tensor2d([transaction.description.split(' ')]));
       const predictedCategoryIndex = tf.argMax(prediction, 1).dataSync()[0];
-      transaction.category = budgetCategories[predictedCategoryIndex].name;
-      return transaction;
+      const predictedCategory = budgetCategories[predictedCategoryIndex];
+      return { ...transaction, category: predictedCategory.name };
     }
     return transaction;
-  };
-
-  const suggestBudgetCategories = (transactions: Transaction[]): BudgetCategory[] => {
-    const categories: BudgetCategory[] = [];
-    const categoryCounts: { [category: string]: number } = {};
-    transactions.forEach((transaction) => {
-      if (transaction.category) {
-        if (categoryCounts[transaction.category]) {
-          categoryCounts[transaction.category]++;
-        } else {
-          categoryCounts[transaction.category] = 1;
-        }
-      }
-    });
-    Object.keys(categoryCounts).forEach((category) => {
-      categories.push({
-        name: category,
-        amount: categoryCounts[category],
-      });
-    });
-    return categories;
   };
 
   const trainModel = async () => {
@@ -118,37 +97,37 @@ export default function BudgetingPage() {
       const trainingLabels = trainingData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
       const validationInputs = validationData.map((transaction) => transaction.description.split(' '));
       const validationLabels = validationData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
-      const trainingTensor = tf.tensor2d(trainingInputs);
-      const validationTensor = tf.tensor2d(validationInputs);
-      const trainingLabelsTensor = tf.tensor1d(trainingLabels, 'int32');
-      const validationLabelsTensor = tf.tensor1d(validationLabels, 'int32');
-      await mlModel.fit(trainingTensor, trainingLabelsTensor, {
+      const xs = tf.tensor2d(trainingInputs, [trainingInputs.length, trainingInputs[0].length], 'string');
+      const ys = tf.tensor1d(trainingLabels, 'int32');
+      const valXs = tf.tensor2d(validationInputs, [validationInputs.length, validationInputs[0].length], 'string');
+      const valYs = tf.tensor1d(validationLabels, 'int32');
+      mlModel.compile({ optimizer: tf.optimizers.adam(), loss: 'sparseCategoricalCrossentropy', metrics: ['accuracy'] });
+      await mlModel.fit(xs, ys, {
         epochs: 100,
-        validationData: [validationTensor, validationLabelsTensor],
+        validationData: [valXs, valYs],
+        callbacks: {
+          onEpochEnd: (epoch, logs) => {
+            setModelAccuracy(logs.accuracy);
+          },
+        },
       });
-      const accuracy = await mlModel.evaluate(validationTensor, validationLabelsTensor);
-      setModelAccuracy(accuracy.accuracy);
     }
+  };
+
+  const suggestBudgetCategories = (transactions: Transaction[]) => {
+    if (mlModel) {
+      const inputs = transactions.map((transaction) => transaction.description.split(' '));
+      const predictions = mlModel.predict(tf.tensor2d(inputs));
+      const predictedCategories = predictions.argMax(1).dataSync();
+      return predictedCategories.map((index) => budgetCategories[index]);
+    }
+    return [];
   };
 
   return (
     <div>
-      <BudgetForm
-        budgetCategories={budgetCategories}
-        handleBudgetSubmit={handleBudgetSubmit}
-      />
-      <BudgetTable
-        transactions={transactions}
-        budgetCategories={budgetCategories}
-        selectedCategory={selectedCategory}
-        handleCategoryChange={handleCategoryChange}
-      />
-      <h2>Suggested Budget Categories</h2>
-      <ul>
-        {suggestedCategories.map((category) => (
-          <li key={category.name}>{category.name} ({category.amount})</li>
-        ))}
-      </ul>
+      <BudgetForm onSubmit={handleBudgetSubmit} />
+      <BudgetTable transactions={transactions.map(categorizeTransaction)} />
     </div>
   );
 }
