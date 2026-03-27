@@ -37,10 +37,16 @@ export default function ExpensesPage() {
   }, [pageNumber, itemsPerPage, initialLoad]);
 
   useEffect(() => {
-    if (initialLoad || pageNumber > 1) {
+    if (initialLoad) {
       fetchExpenses();
     }
-  }, [pageNumber, itemsPerPage, initialLoad, fetchExpenses]);
+  }, [initialLoad, fetchExpenses]);
+
+  useEffect(() => {
+    if (pageNumber > 1) {
+      fetchExpenses();
+    }
+  }, [pageNumber, fetchExpenses]);
 
   const handleScroll = useCallback(async () => {
     if (loadMoreRef.current && loadMoreRef.current.getBoundingClientRect().top < window.innerHeight) {
@@ -86,30 +92,26 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     if (loadMoreRef.current) {
-      const options = {
-        root: null,
-        rootMargin: '0px',
-        threshold: 1.0,
+      const observerInstance = new IntersectionObserver(handleIntersection, {
+        rootMargin: '100px',
+      });
+      observerInstance.observe(loadMoreRef.current);
+      observer.current = observerInstance;
+      return () => {
+        if (observer.current) {
+          observer.current.unobserve(loadMoreRef.current);
+        }
       };
-      observer.current = new IntersectionObserver(handleIntersection, options);
-      observer.current.observe(loadMoreRef.current);
     }
-    return () => {
-      if (observer.current) {
-        observer.current.disconnect();
-      }
-    };
   }, [handleIntersection]);
 
   return (
     <div>
+      <AddExpenseForm onAddExpense={handleAddExpense} />
       {expenses.map((expense) => (
-        <ExpenseCard key={expense.id} expense={expense} onDelete={handleDeleteExpense} />
+        <ExpenseCard key={expense.id} expense={expense} onDeleteExpense={handleDeleteExpense} />
       ))}
-      {hasMoreExpenses && (
-        <div ref={loadMoreRef} style={{ height: '1px', visibility: 'hidden' }} />
-      )}
-      <AddExpenseForm onAdd={handleAddExpense} />
+      {hasMoreExpenses && <div ref={loadMoreRef}>Loading more expenses...</div>}
     </div>
   );
 }

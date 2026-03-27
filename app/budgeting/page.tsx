@@ -83,8 +83,8 @@ export default function BudgetingPage() {
       model.add(embeddingLayer);
       model.add(sequenceLayer);
       model.add(denseLayer);
-      const prediction = model.predict(tf.tensor2d([transaction.description.split(' ')]));
-      const predictedCategoryIndex = tf.argMax(prediction, 1).dataSync()[0];
+      const predictions = model.predict(tf.tensor2d([transaction.description.split(' ')]));
+      const predictedCategoryIndex = tf.argMax(predictions, 1).dataSync()[0];
       const predictedCategory = budgetCategories[predictedCategoryIndex];
       return { ...transaction, category: predictedCategory.name };
     }
@@ -98,19 +98,19 @@ export default function BudgetingPage() {
       const validationInputs = validationData.map((transaction) => transaction.description.split(' '));
       const validationLabels = validationData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
       const trainingTensor = tf.tensor2d(trainingInputs);
+      const trainingLabelTensor = tf.tensor1d(trainingLabels);
       const validationTensor = tf.tensor2d(validationInputs);
-      const labelsTensor = tf.tensor1d(trainingLabels, 'int32');
-      const validationLabelsTensor = tf.tensor1d(validationLabels, 'int32');
-      await mlModel.fit(trainingTensor, labelsTensor, {
+      const validationLabelTensor = tf.tensor1d(validationLabels);
+      await mlModel.fit(trainingTensor, trainingLabelTensor, {
         epochs: 100,
-        validationData: [validationTensor, validationLabelsTensor],
+        validationData: [validationTensor, validationLabelTensor],
       });
-      const accuracy = await mlModel.evaluate(validationTensor, validationLabelsTensor);
+      const accuracy = await mlModel.evaluate(validationTensor, validationLabelTensor);
       setModelAccuracy(accuracy.accuracy);
     }
   };
 
-  const suggestBudgetCategories = (transactions: Transaction[]): BudgetCategory[] => {
+  const suggestBudgetCategories = (transactions: Transaction[]) => {
     if (mlModel) {
       const inputs = transactions.map((transaction) => transaction.description.split(' '));
       const tensor = tf.tensor2d(inputs);
