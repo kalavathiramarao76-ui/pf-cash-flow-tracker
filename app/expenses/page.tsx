@@ -86,11 +86,9 @@ export default function ExpensesPage() {
             <ExpenseCard key={expense.id} expense={expense} onDelete={handleDeleteExpense} />
           ))}
           {hasMoreExpenses && !loading && (
-            <div ref={loadMoreRef} className="w-full h-10" />
+            <div ref={loadMoreRef} className="w-full h-1 bg-gray-200" />
           )}
-          {loading && pageNumber > 1 && (
-            <p>Loading more expenses...</p>
-          )}
+          {loading && pageNumber > 1 && <p>Loading more expenses...</p>}
         </div>
       )}
       <AddExpenseForm onAdd={handleAddExpense} />

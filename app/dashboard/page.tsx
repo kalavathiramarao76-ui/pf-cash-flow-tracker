@@ -118,60 +118,121 @@ const DashboardPage = () => {
     },
   });
 
-  const handleChartTypeChange = (event: any) => {
+  const handleChartTypeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setChartType(event.target.value);
   };
 
   useEffect(() => {
-    const storedTransactions = LocalStorage.getTransactions();
+    const storedTransactions = LocalStorage.get('transactions');
     if (storedTransactions) {
       setTransactions(storedTransactions);
-      const income = storedTransactions.reduce((acc, transaction) => {
-        if (transaction.type === 'income') {
-          return acc + transaction.amount;
-        }
-        return acc;
-      }, 0);
-      setIncome(income);
-      const expenses = storedTransactions.reduce((acc, transaction) => {
-        if (transaction.type === 'expense') {
-          return acc + transaction.amount;
-        }
-        return acc;
-      }, 0);
-      setExpenses(expenses);
-      const budget = income - expenses;
-      setBudget(budget);
-      const chartData = {
-        labels: storedTransactions.map((transaction) => transaction.date),
+    }
+  }, []);
+
+  useEffect(() => {
+    if (transactions.length > 0) {
+      const incomeData = transactions
+        .filter((transaction) => transaction.type === 'income')
+        .map((transaction) => transaction.amount);
+      const expenseData = transactions
+        .filter((transaction) => transaction.type === 'expense')
+        .map((transaction) => transaction.amount);
+      setChartData({
+        labels: transactions.map((transaction) => transaction.date),
         datasets: [
           {
             label: 'Income',
-            data: storedTransactions.map((transaction) => {
-              if (transaction.type === 'income') {
-                return transaction.amount;
-              }
-              return 0;
-            }),
+            data: incomeData,
             borderColor: 'rgb(255, 99, 132)',
             backgroundColor: 'rgba(255, 99, 132, 0.2)',
           },
           {
             label: 'Expenses',
-            data: storedTransactions.map((transaction) => {
-              if (transaction.type === 'expense') {
-                return transaction.amount;
-              }
-              return 0;
-            }),
+            data: expenseData,
             borderColor: 'rgb(54, 162, 235)',
             backgroundColor: 'rgba(54, 162, 235, 0.2)',
           },
         ],
-      };
-      setChartData(chartData);
+      });
     }
-  }, []);
+  }, [transactions]);
+
+  useEffect(() => {
+    if (transactions.length > 0) {
+      const incomeDistributionData = transactions
+        .filter((transaction) => transaction.type === 'income')
+        .reduce((acc, transaction) => {
+          const category = transaction.category;
+          if (!acc[category]) {
+            acc[category] = 0;
+          }
+          acc[category] += transaction.amount;
+          return acc;
+        }, {});
+      const expenseDistributionData = transactions
+        .filter((transaction) => transaction.type === 'expense')
+        .reduce((acc, transaction) => {
+          const category = transaction.category;
+          if (!acc[category]) {
+            acc[category] = 0;
+          }
+          acc[category] += transaction.amount;
+          return acc;
+        }, {});
+      setIncomeDistribution({
+        labels: Object.keys(incomeDistributionData),
+        datasets: [
+          {
+            label: 'Income Distribution',
+            data: Object.values(incomeDistributionData),
+            backgroundColor: [
+              'rgba(255, 99, 132, 0.2)',
+              'rgba(54, 162, 235, 0.2)',
+              'rgba(255, 206, 86, 0.2)',
+              'rgba(75, 192, 192, 0.2)',
+              'rgba(153, 102, 255, 0.2)',
+              'rgba(255, 159, 64, 0.2)',
+            ],
+            borderColor: [
+              'rgba(255, 99, 132, 1)',
+              'rgba(54, 162, 235, 1)',
+              'rgba(255, 206, 86, 1)',
+              'rgba(75, 192, 192, 1)',
+              'rgba(153, 102, 255, 1)',
+              'rgba(255, 159, 64, 1)',
+            ],
+            borderWidth: 1,
+          },
+        ],
+      });
+      setExpenseDistribution({
+        labels: Object.keys(expenseDistributionData),
+        datasets: [
+          {
+            label: 'Expense Distribution',
+            data: Object.values(expenseDistributionData),
+            backgroundColor: [
+              'rgba(255, 99, 132, 0.2)',
+              'rgba(54, 162, 235, 0.2)',
+              'rgba(255, 206, 86, 0.2)',
+              'rgba(75, 192, 192, 0.2)',
+              'rgba(153, 102, 255, 0.2)',
+              'rgba(255, 159, 64, 0.2)',
+            ],
+            borderColor: [
+              'rgba(255, 99, 132, 1)',
+              'rgba(54, 162, 235, 1)',
+              'rgba(255, 206, 86, 1)',
+              'rgba(75, 192, 192, 1)',
+              'rgba(153, 102, 255, 1)',
+              'rgba(255, 159, 64, 1)',
+            ],
+            borderWidth: 1,
+          },
+        ],
+      });
+    }
+  }, [transactions]);
 
   return (
     <DashboardLayout>
@@ -192,11 +253,13 @@ const DashboardPage = () => {
           <Pie options={chartOptions} data={chartData} />
         )}
       </div>
+      <div className="distribution-charts">
+        <h2>Income Distribution</h2>
+        <Pie data={incomeDistribution} />
+        <h2>Expense Distribution</h2>
+        <Pie data={expenseDistribution} />
+      </div>
       <TransactionTable transactions={transactions} />
-      <BudgetingChart
-        incomeDistribution={incomeDistribution}
-        expenseDistribution={expenseDistribution}
-      />
     </DashboardLayout>
   );
 };
