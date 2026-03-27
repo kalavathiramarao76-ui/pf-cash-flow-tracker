@@ -84,7 +84,7 @@ export default function BudgetingPage() {
       model.add(sequenceLayer);
       model.add(denseLayer);
       const prediction = model.predict(tf.tensor2d([transaction.description.split(' ')]));
-      const predictedCategoryIndex = tf.argMax(prediction, 1).dataSync()[0];
+      const predictedCategoryIndex = prediction.argMax(1).dataSync()[0];
       const predictedCategory = budgetCategories[predictedCategoryIndex];
       return { ...transaction, category: predictedCategory.name };
     }
@@ -94,42 +94,41 @@ export default function BudgetingPage() {
   const trainModel = async () => {
     if (mlModel) {
       const trainingInputs = trainingData.map((transaction) => transaction.description.split(' '));
-      const trainingLabels = trainingData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
-      const validationInputs = validationData.map((transaction) => transaction.description.split(' '));
-      const validationLabels = validationData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
-      const optimizer = tf.optimizers.adam();
-      mlModel.compile({ optimizer, loss: 'sparseCategoricalCrossentropy', metrics: ['accuracy'] });
-      await mlModel.fit(tf.tensor2d(trainingInputs), tf.tensor1d(trainingLabels), {
-        epochs: 10,
-        validationData: [tf.tensor2d(validationInputs), tf.tensor1d(validationLabels)],
+      const trainingOutputs = trainingData.map((transaction) => {
+        const categoryIndex = budgetCategories.findIndex((category) => category.name === transaction.category);
+        return categoryIndex !== -1 ? categoryIndex : 0;
       });
-      const accuracy = mlModel.evaluate(tf.tensor2d(validationInputs), tf.tensor1d(validationLabels));
-      setModelAccuracy(accuracy.accuracy);
+      const validationInputs = validationData.map((transaction) => transaction.description.split(' '));
+      const validationOutputs = validationData.map((transaction) => {
+        const categoryIndex = budgetCategories.findIndex((category) => category.name === transaction.category);
+        return categoryIndex !== -1 ? categoryIndex : 0;
+      });
+      await mlModel.fit(
+        tf.tensor2d(trainingInputs),
+        tf.tensor1d(trainingOutputs, 'int32'),
+        {
+          epochs: 100,
+          validationData: [tf.tensor2d(validationInputs), tf.tensor1d(validationOutputs, 'int32')],
+        }
+      );
+      const accuracy = mlModel.evaluate(tf.tensor2d(validationInputs), tf.tensor1d(validationOutputs, 'int32'));
+      setModelAccuracy(accuracy.accuracy.dataSync()[0]);
     }
   };
 
-  const suggestBudgetCategories = (transactions: Transaction[]): BudgetCategory[] => {
+  const suggestBudgetCategories = (transactions: Transaction[]) => {
     if (mlModel) {
-      const inputs = transactions.map((transaction) => transaction.description.split(' '));
-      const predictions = mlModel.predict(tf.tensor2d(inputs));
-      const predictedCategories = predictions.argMax(1).dataSync();
-      return predictedCategories.map((predictedCategoryIndex) => budgetCategories[predictedCategoryIndex]);
+      const categorizedTransactions = transactions.map((transaction) => categorizeTransaction(transaction));
+      const suggestedCategories = Array.from(new Set(categorizedTransactions.map((transaction) => transaction.category)));
+      return suggestedCategories.map((category) => ({ name: category }));
     }
     return [];
   };
 
   return (
     <div>
-      <BudgetForm
-        budgetCategories={budgetCategories}
-        handleBudgetSubmit={handleBudgetSubmit}
-      />
-      <BudgetTable
-        transactions={transactions.map(categorizeTransaction)}
-        budgetCategories={budgetCategories}
-        handleCategoryChange={handleCategoryChange}
-        selectedCategory={selectedCategory}
-      />
+      <BudgetForm onSubmit={handleBudgetSubmit} />
+      <BudgetTable transactions={transactions} categories={budgetCategories} onCategoryChange={handleCategoryChange} />
     </div>
   );
 }
