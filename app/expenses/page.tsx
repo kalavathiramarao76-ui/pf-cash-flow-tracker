@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { usePathname } from 'next/navigation';
 import { getExpenses, addExpense, deleteExpense } from '../lib/expenses';
 import { Expense } from '../types/expenses';
@@ -13,6 +13,7 @@ export default function ExpensesPage() {
   const [hasMoreExpenses, setHasMoreExpenses] = useState(true);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [initialLoad, setInitialLoad] = useState(true);
+  const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     const fetchExpenses = async () => {
@@ -39,6 +40,20 @@ export default function ExpensesPage() {
     }
   }, [pageNumber, itemsPerPage, initialLoad]);
 
+  useEffect(() => {
+    const handleScroll = async () => {
+      if (loadMoreRef.current && loadMoreRef.current.getBoundingClientRect().top < window.innerHeight) {
+        if (hasMoreExpenses && !loading) {
+          setPageNumber((prevPageNumber) => prevPageNumber + 1);
+        }
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, [hasMoreExpenses, loading]);
+
   const handleAddExpense = async (expense: Expense) => {
     try {
       await addExpense(expense);
@@ -60,10 +75,6 @@ export default function ExpensesPage() {
     }
   };
 
-  const handleLoadMore = () => {
-    setPageNumber((prevPageNumber) => prevPageNumber + 1);
-  };
-
   return (
     <div className="max-w-5xl mx-auto p-4 md:p-6 lg:p-8">
       <h1 className="text-3xl font-bold mb-4">Expenses</h1>
@@ -81,17 +92,11 @@ export default function ExpensesPage() {
           {loading && pageNumber > 1 && (
             <div>Loading more expenses...</div>
           )}
+          {hasMoreExpenses && (
+            <div ref={loadMoreRef} />
+          )}
         </div>
       )}
-      {hasMoreExpenses && (
-        <button
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-          onClick={handleLoadMore}
-        >
-          Load More
-        </button>
-      )}
-      <AddExpenseForm onAddExpense={handleAddExpense} />
     </div>
   );
 }

@@ -79,31 +79,33 @@ export default function BudgetingPage() {
         units: budgetCategories.length,
         activation: 'softmax',
       });
-      const output = denseLayer.apply(sequenceLayer.apply(embeddingLayer.apply(tf.tensor2d([transaction.description.split(' ')]))));
-      const prediction = tf.argMax(output, 1).dataSync()[0];
-      transaction.category = budgetCategories[prediction].name;
-      return transaction;
+      const model = tf.sequential();
+      model.add(embeddingLayer);
+      model.add(sequenceLayer);
+      model.add(denseLayer);
+      const prediction = model.predict(tf.tensor2d([transaction.description.split(' ')]));
+      const predictedCategoryIndex = tf.argMax(prediction, 1).dataSync()[0];
+      const predictedCategory = budgetCategories[predictedCategoryIndex];
+      return { ...transaction, category: predictedCategory.name };
     }
     return transaction;
   };
 
   const suggestBudgetCategories = (transactions: Transaction[]): BudgetCategory[] => {
     const categories: BudgetCategory[] = [];
-    const categoryCounts: { [key: string]: number } = {};
+    const categoryCounts: { [category: string]: number } = {};
     transactions.forEach((transaction) => {
-      if (transaction.category) {
-        if (categoryCounts[transaction.category]) {
-          categoryCounts[transaction.category]++;
-        } else {
-          categoryCounts[transaction.category] = 1;
-        }
+      const category = categorizeTransaction(transaction).category;
+      if (categoryCounts[category]) {
+        categoryCounts[category]++;
+      } else {
+        categoryCounts[category] = 1;
       }
     });
     Object.keys(categoryCounts).forEach((category) => {
-      categories.push({
-        name: category,
-        amount: categoryCounts[category],
-      });
+      const count = categoryCounts[category];
+      const percentage = (count / transactions.length) * 100;
+      categories.push({ name: category, budget: percentage });
     });
     return categories;
   };
@@ -114,16 +116,16 @@ export default function BudgetingPage() {
       const trainingOutputs = trainingData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
       const validationInputs = validationData.map((transaction) => transaction.description.split(' '));
       const validationOutputs = validationData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
-      const xs = tf.tensor2d(trainingInputs, [trainingInputs.length, trainingInputs[0].length], 'string');
-      const ys = tf.tensor1d(trainingOutputs, 'int32');
-      const xsVal = tf.tensor2d(validationInputs, [validationInputs.length, validationInputs[0].length], 'string');
-      const ysVal = tf.tensor1d(validationOutputs, 'int32');
-      await mlModel.fit(xs, ys, {
+      const trainingTensor = tf.tensor2d(trainingInputs);
+      const validationTensor = tf.tensor2d(validationInputs);
+      const outputTensor = tf.tensor1d(trainingOutputs);
+      const validationOutputTensor = tf.tensor1d(validationOutputs);
+      await mlModel.fit(trainingTensor, outputTensor, {
         epochs: 100,
-        validationData: [xsVal, ysVal],
+        validationData: [validationTensor, validationOutputTensor],
       });
-      const accuracy = await mlModel.evaluate(xsVal, ysVal);
-      setModelAccuracy(accuracy.accuracy);
+      const accuracy = mlModel.evaluate(validationTensor, validationOutputTensor);
+      setModelAccuracy(accuracy);
     }
   };
 
@@ -132,25 +134,14 @@ export default function BudgetingPage() {
       <BudgetForm
         budgetCategories={budgetCategories}
         handleBudgetSubmit={handleBudgetSubmit}
+        suggestedCategories={suggestedCategories}
       />
       <BudgetTable
         transactions={transactions}
         budgetCategories={budgetCategories}
-        selectedCategory={selectedCategory}
         handleCategoryChange={handleCategoryChange}
+        selectedCategory={selectedCategory}
       />
-      {suggestedCategories.length > 0 && (
-        <div>
-          <h2>Suggested Budget Categories</h2>
-          <ul>
-            {suggestedCategories.map((category) => (
-              <li key={category.name}>
-                {category.name} ({category.amount})
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
     </div>
   );
 }
