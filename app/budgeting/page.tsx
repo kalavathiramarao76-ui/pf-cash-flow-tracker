@@ -83,8 +83,7 @@ export default function BudgetingPage() {
       model.add(embeddingLayer);
       model.add(sequenceLayer);
       model.add(denseLayer);
-      const predictions = model.predict(tf.tensor2d([transaction.description.split(' ')]));
-      const predictedCategoryIndex = tf.argMax(predictions, 1).dataSync()[0];
+      const predictedCategoryIndex = tf.argMax(model.predict(tf.tensor2d([transaction.description.split(' ')])), 1).dataSync()[0];
       const predictedCategory = budgetCategories[predictedCategoryIndex];
       return { ...transaction, category: predictedCategory.name };
     }
@@ -101,7 +100,7 @@ export default function BudgetingPage() {
       const trainingLabelTensor = tf.tensor1d(trainingLabels, 'int32');
       const validationTensor = tf.tensor2d(validationInputs, [validationInputs.length, validationInputs[0].length]);
       const validationLabelTensor = tf.tensor1d(validationLabels, 'int32');
-      mlModel.compile({ optimizer: tf.optimizers.adam(), loss: 'sparseCategoricalCrossentropy', metrics: ['accuracy'] });
+      await mlModel.compile({ optimizer: tf.optimizers.adam(), loss: 'sparseCategoricalCrossentropy', metrics: ['accuracy'] });
       await mlModel.fit(trainingTensor, trainingLabelTensor, {
         epochs: 100,
         validationData: [validationTensor, validationLabelTensor],
@@ -112,19 +111,19 @@ export default function BudgetingPage() {
   };
 
   const suggestBudgetCategories = (transactions: Transaction[]) => {
-    if (mlModel) {
-      const inputs = transactions.map((transaction) => transaction.description.split(' '));
-      const predictions = mlModel.predict(tf.tensor2d(inputs));
-      const predictedCategories = predictions.argMax(1).dataSync();
-      return predictedCategories.map((index) => budgetCategories[index]);
-    }
-    return [];
+    const categories: BudgetCategory[] = [];
+    transactions.forEach((transaction) => {
+      if (!categories.find((category) => category.name === transaction.category)) {
+        categories.push({ name: transaction.category, amount: 0 });
+      }
+    });
+    return categories;
   };
 
   return (
     <div>
-      <BudgetForm onSubmit={handleBudgetSubmit} />
-      <BudgetTable transactions={transactions.map(categorizeTransaction)} />
+      <BudgetForm onBudgetSubmit={handleBudgetSubmit} />
+      <BudgetTable transactions={transactions.map(categorizeTransaction)} budgetCategories={budgetCategories} onCategoryChange={handleCategoryChange} />
     </div>
   );
 }

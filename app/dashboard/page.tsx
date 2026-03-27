@@ -107,13 +107,30 @@ const DashboardPage = () => {
   const [chartType, setChartType] = useState('line');
   const [chartOptions, setChartOptions] = useState({
     responsive: true,
+    interaction: {
+      mode: 'index',
+      intersect: false,
+    },
+    stacked: false,
     plugins: {
-      legend: {
-        position: 'top',
-      },
       title: {
         display: true,
         text: 'Cash Flow Chart',
+      },
+    },
+    scales: {
+      y: {
+        type: 'linear',
+        display: true,
+        position: 'left',
+      },
+      y1: {
+        type: 'linear',
+        display: true,
+        position: 'right',
+        grid: {
+          drawOnChartArea: false,
+        },
       },
     },
   });
@@ -249,7 +266,11 @@ const DashboardPage = () => {
 
   return (
     <DashboardLayout>
-      <OverviewCard income={income} expenses={expenses} budget={budget} />
+      <OverviewCard
+        income={income}
+        expenses={expenses}
+        budget={budget}
+      />
       <div className="chart-container">
         <select value={chartType} onChange={handleChartTypeChange}>
           <option value="line">Line Chart</option>
@@ -274,7 +295,7 @@ const DashboardPage = () => {
       </div>
       <TransactionTable
         transactions={detailedTransactions}
-        handleDateChange={handleDateChange}
+        onDateChange={handleDateChange}
       />
     </DashboardLayout>
   );
