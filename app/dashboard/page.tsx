@@ -107,31 +107,13 @@ const DashboardPage = () => {
   const [chartType, setChartType] = useState('line');
   const [chartOptions, setChartOptions] = useState({
     responsive: true,
-    interaction: {
-      intersect: false,
-    },
     plugins: {
       legend: {
-        display: true,
+        position: 'top',
       },
-      tooltip: {
-        displayColors: false,
-      },
-    },
-    scales: {
-      x: {
+      title: {
         display: true,
-        title: {
-          display: true,
-          text: 'Date',
-        },
-      },
-      y: {
-        display: true,
-        title: {
-          display: true,
-          text: 'Amount',
-        },
+        text: 'Cash Flow Chart',
       },
     },
   });
@@ -145,7 +127,7 @@ const DashboardPage = () => {
   };
 
   useEffect(() => {
-    const storedTransactions = LocalStorage.get('transactions');
+    const storedTransactions = LocalStorage.getTransactions();
     if (storedTransactions) {
       setTransactions(storedTransactions);
     }
@@ -267,11 +249,7 @@ const DashboardPage = () => {
 
   return (
     <DashboardLayout>
-      <OverviewCard
-        income={income}
-        expenses={expenses}
-        budget={budget}
-      />
+      <OverviewCard income={income} expenses={expenses} budget={budget} />
       <div className="chart-container">
         <select value={chartType} onChange={handleChartTypeChange}>
           <option value="line">Line Chart</option>
@@ -290,9 +268,9 @@ const DashboardPage = () => {
       </div>
       <div className="distribution-charts">
         <h2>Income Distribution</h2>
-        <Pie options={chartOptions} data={incomeDistribution} />
+        <Pie data={incomeDistribution} />
         <h2>Expense Distribution</h2>
-        <Pie options={chartOptions} data={expenseDistribution} />
+        <Pie data={expenseDistribution} />
       </div>
       <TransactionTable
         transactions={detailedTransactions}

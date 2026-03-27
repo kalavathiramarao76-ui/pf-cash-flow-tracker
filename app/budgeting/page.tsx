@@ -97,15 +97,16 @@ export default function BudgetingPage() {
       const trainingLabels = trainingData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
       const validationInputs = validationData.map((transaction) => transaction.description.split(' '));
       const validationLabels = validationData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
-      const trainingTensor = tf.tensor2d(trainingInputs);
-      const trainingLabelTensor = tf.tensor1d(trainingLabels);
-      const validationTensor = tf.tensor2d(validationInputs);
-      const validationLabelTensor = tf.tensor1d(validationLabels);
+      const trainingTensor = tf.tensor2d(trainingInputs, [trainingInputs.length, trainingInputs[0].length]);
+      const trainingLabelTensor = tf.tensor1d(trainingLabels, 'int32');
+      const validationTensor = tf.tensor2d(validationInputs, [validationInputs.length, validationInputs[0].length]);
+      const validationLabelTensor = tf.tensor1d(validationLabels, 'int32');
+      mlModel.compile({ optimizer: tf.optimizers.adam(), loss: 'sparseCategoricalCrossentropy', metrics: ['accuracy'] });
       await mlModel.fit(trainingTensor, trainingLabelTensor, {
         epochs: 100,
         validationData: [validationTensor, validationLabelTensor],
       });
-      const accuracy = await mlModel.evaluate(validationTensor, validationLabelTensor);
+      const accuracy = mlModel.evaluate(validationTensor, validationLabelTensor);
       setModelAccuracy(accuracy.accuracy);
     }
   };
@@ -113,8 +114,7 @@ export default function BudgetingPage() {
   const suggestBudgetCategories = (transactions: Transaction[]) => {
     if (mlModel) {
       const inputs = transactions.map((transaction) => transaction.description.split(' '));
-      const tensor = tf.tensor2d(inputs);
-      const predictions = mlModel.predict(tensor);
+      const predictions = mlModel.predict(tf.tensor2d(inputs));
       const predictedCategories = predictions.argMax(1).dataSync();
       return predictedCategories.map((index) => budgetCategories[index]);
     }
