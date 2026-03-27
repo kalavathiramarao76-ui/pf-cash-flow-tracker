@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import { getExpenses, addExpense, deleteExpense } from '../lib/expenses';
 import { Expense } from '../types/expenses';
@@ -15,44 +15,46 @@ export default function ExpensesPage() {
   const [initialLoad, setInitialLoad] = useState(true);
   const loadMoreRef = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    const fetchExpenses = async () => {
-      if (initialLoad) {
-        setInitialLoad(false);
+  const fetchExpenses = useCallback(async () => {
+    if (initialLoad) {
+      setInitialLoad(false);
+    }
+    setLoading(true);
+    try {
+      const expensesResponse = await getExpenses(pageNumber, itemsPerPage);
+      if (pageNumber === 1) {
+        setExpenses(expensesResponse.expenses);
+      } else {
+        setExpenses((prevExpenses) => [...prevExpenses, ...expensesResponse.expenses]);
       }
-      setLoading(true);
-      try {
-        const expensesResponse = await getExpenses(pageNumber, itemsPerPage);
-        if (pageNumber === 1) {
-          setExpenses(expensesResponse.expenses);
-        } else {
-          setExpenses((prevExpenses) => [...prevExpenses, ...expensesResponse.expenses]);
-        }
-        setHasMoreExpenses(expensesResponse.hasMore);
-      } catch (error) {
-        console.error('Error fetching expenses:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    if (initialLoad || pageNumber > 1) {
-      fetchExpenses();
+      setHasMoreExpenses(expensesResponse.hasMore);
+    } catch (error) {
+      console.error('Error fetching expenses:', error);
+    } finally {
+      setLoading(false);
     }
   }, [pageNumber, itemsPerPage, initialLoad]);
 
   useEffect(() => {
-    const handleScroll = async () => {
-      if (loadMoreRef.current && loadMoreRef.current.getBoundingClientRect().top < window.innerHeight) {
-        if (hasMoreExpenses && !loading) {
-          setPageNumber((prevPageNumber) => prevPageNumber + 1);
-        }
+    if (initialLoad || pageNumber > 1) {
+      fetchExpenses();
+    }
+  }, [pageNumber, itemsPerPage, initialLoad, fetchExpenses]);
+
+  const handleScroll = useCallback(async () => {
+    if (loadMoreRef.current && loadMoreRef.current.getBoundingClientRect().top < window.innerHeight) {
+      if (hasMoreExpenses && !loading) {
+        setPageNumber((prevPageNumber) => prevPageNumber + 1);
       }
-    };
+    }
+  }, [hasMoreExpenses, loading]);
+
+  useEffect(() => {
     window.addEventListener('scroll', handleScroll);
     return () => {
       window.removeEventListener('scroll', handleScroll);
     };
-  }, [hasMoreExpenses, loading]);
+  }, [handleScroll]);
 
   const handleAddExpense = async (expense: Expense) => {
     try {
@@ -85,12 +87,7 @@ export default function ExpensesPage() {
           {expenses.map((expense, index) => (
             <ExpenseCard key={expense.id} expense={expense} onDelete={handleDeleteExpense} />
           ))}
-          {hasMoreExpenses && !loading && (
-            <div ref={loadMoreRef} className="w-full h-10" />
-          )}
-          {loading && pageNumber > 1 && (
-            <p>Loading more expenses...</p>
-          )}
+          {hasMoreExpenses && <div ref={loadMoreRef} />}
         </div>
       )}
       <AddExpenseForm onAdd={handleAddExpense} />
