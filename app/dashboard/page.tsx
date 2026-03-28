@@ -122,8 +122,12 @@ const DashboardPage = () => {
     setChartType(event.target.value);
   };
 
+  const handleDateChange = (date: Date) => {
+    setSelectedDate(date);
+  };
+
   useEffect(() => {
-    const storedTransactions = LocalStorage.get('transactions');
+    const storedTransactions = LocalStorage.getTransactions();
     if (storedTransactions) {
       setTransactions(storedTransactions);
     }
@@ -253,7 +257,7 @@ const DashboardPage = () => {
           <Pie options={chartOptions} data={chartData} />
         )}
       </div>
-      <div className="distribution-charts">
+      <div className="distribution-container">
         <h2>Income Distribution</h2>
         <Pie data={incomeDistribution} />
         <h2>Expense Distribution</h2>

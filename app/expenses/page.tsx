@@ -95,12 +95,10 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     if (loadMoreRef.current) {
-      const options = {
-        root: null,
-        rootMargin: '0px',
+      observer.current = new IntersectionObserver(handleIntersection, {
+        rootMargin: '100px',
         threshold: 1.0,
-      };
-      observer.current = new IntersectionObserver(handleIntersection, options);
+      });
       observer.current.observe(loadMoreRef.current);
     }
     return () => {
