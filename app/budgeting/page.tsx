@@ -83,10 +83,9 @@ export default function BudgetingPage() {
       model.add(embeddingLayer);
       model.add(sequenceLayer);
       model.add(denseLayer);
-      const prediction = model.predict(tf.tensor2d([transaction.description.split(' ')]));
-      const predictedCategoryIndex = tf.argMax(prediction, 1).dataSync()[0];
+      const predictedCategoryIndex = tf.argMax(model.predict(tf.tensor2d([transaction.description.split(' ')])), 1).arraySync()[0];
       const predictedCategory = budgetCategories[predictedCategoryIndex];
-      return { ...transaction, category: predictedCategory };
+      return { ...transaction, category: predictedCategory.name };
     }
     return transaction;
   };
@@ -94,31 +93,32 @@ export default function BudgetingPage() {
   const trainModel = async () => {
     if (mlModel) {
       const trainingInputs = trainingData.map((transaction) => transaction.description.split(' '));
-      const trainingLabels = trainingData.map((transaction) => budgetCategories.indexOf(transaction.category));
+      const trainingLabels = trainingData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
       const validationInputs = validationData.map((transaction) => transaction.description.split(' '));
-      const validationLabels = validationData.map((transaction) => budgetCategories.indexOf(transaction.category));
-      const trainingTensor = tf.tensor2d(trainingInputs);
-      const trainingLabelTensor = tf.tensor1d(trainingLabels);
-      const validationTensor = tf.tensor2d(validationInputs);
-      const validationLabelTensor = tf.tensor1d(validationLabels);
-      await mlModel.fit(trainingTensor, trainingLabelTensor, {
+      const validationLabels = validationData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
+      const trainingTensor = tf.tensor2d(trainingInputs, [trainingInputs.length, trainingInputs[0].length]);
+      const validationTensor = tf.tensor2d(validationInputs, [validationInputs.length, validationInputs[0].length]);
+      const trainingLabelsTensor = tf.tensor1d(trainingLabels, 'int32');
+      const validationLabelsTensor = tf.tensor1d(validationLabels, 'int32');
+      await mlModel.fit(trainingTensor, trainingLabelsTensor, {
         epochs: 100,
-        validationData: [validationTensor, validationLabelTensor],
+        validationData: [validationTensor, validationLabelsTensor],
       });
-      const accuracy = mlModel.evaluate(validationTensor, validationLabelTensor);
-      setModelAccuracy(accuracy);
+      const accuracy = mlModel.evaluate(validationTensor, validationLabelsTensor);
+      setModelAccuracy(accuracy.accuracy);
     }
   };
 
-  const suggestBudgetCategories = (transactions: Transaction[]) => {
-    const suggestedCategories: BudgetCategory[] = [];
-    transactions.forEach((transaction) => {
-      const predictedCategory = categorizeTransaction(transaction);
-      if (!suggestedCategories.includes(predictedCategory)) {
-        suggestedCategories.push(predictedCategory);
-      }
-    });
-    return suggestedCategories;
+  const suggestBudgetCategories = (transactions: Transaction[]): BudgetCategory[] => {
+    if (mlModel) {
+      const transactionDescriptions = transactions.map((transaction) => transaction.description);
+      const predictedCategories = transactionDescriptions.map((description) => {
+        const predictedCategoryIndex = tf.argMax(mlModel.predict(tf.tensor2d([description.split(' ')])), 1).arraySync()[0];
+        return budgetCategories[predictedCategoryIndex];
+      });
+      return predictedCategories;
+    }
+    return [];
   };
 
   return (
@@ -128,10 +128,10 @@ export default function BudgetingPage() {
         handleBudgetSubmit={handleBudgetSubmit}
       />
       <BudgetTable
-        transactions={transactions}
+        transactions={transactions.map(categorizeTransaction)}
         budgetCategories={budgetCategories}
-        selectedCategory={selectedCategory}
         handleCategoryChange={handleCategoryChange}
+        selectedCategory={selectedCategory}
       />
     </div>
   );
