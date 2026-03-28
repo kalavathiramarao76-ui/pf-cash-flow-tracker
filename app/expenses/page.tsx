@@ -114,7 +114,7 @@ export default function ExpensesPage() {
     <div>
       <AddExpenseForm onAddExpense={handleAddExpense} />
       {expenses.map((expense) => (
-        <ExpenseCard key={expense.id} expense={expense} onDeleteExpense={handleDeleteExpense} />
+        <ExpenseCard key={expense.id} expense={expense} onDelete={handleDeleteExpense} />
       ))}
       {hasMoreExpenses && <div ref={loadMoreRef}>Loading more expenses...</div>}
     </div>
