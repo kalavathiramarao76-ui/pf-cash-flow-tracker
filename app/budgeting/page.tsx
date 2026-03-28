@@ -83,45 +83,39 @@ export default function BudgetingPage() {
       model.add(embeddingLayer);
       model.add(sequenceLayer);
       model.add(denseLayer);
-      const input = tf.tensor2d([transaction.description.split(' ').map((word) => word.charCodeAt(0))]);
-      const output = model.predict(input);
-      const categoryIndex = tf.argMax(output, 1).dataSync()[0];
-      transaction.category = budgetCategories[categoryIndex].name;
-      return transaction;
+      const predictions = model.predict(tf.tensor2d([transaction.description.split(' ')]));
+      const predictedCategoryIndex = predictions.argMax(1).dataSync()[0];
+      const predictedCategory = budgetCategories[predictedCategoryIndex];
+      return { ...transaction, category: predictedCategory.name };
     }
     return transaction;
   };
 
   const trainModel = async () => {
     if (mlModel) {
-      const trainingInputs = trainingData.map((transaction) => transaction.description.split(' ').map((word) => word.charCodeAt(0)));
-      const trainingOutputs = trainingData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
-      const validationInputs = validationData.map((transaction) => transaction.description.split(' ').map((word) => word.charCodeAt(0)));
-      const validationOutputs = validationData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
-      const trainingInputTensor = tf.tensor2d(trainingInputs);
-      const trainingOutputTensor = tf.tensor1d(trainingOutputs);
-      const validationInputTensor = tf.tensor2d(validationInputs);
-      const validationOutputTensor = tf.tensor1d(validationOutputs);
-      mlModel.compile({ optimizer: tf.optimizers.adam(), loss: 'sparseCategoricalCrossentropy', metrics: ['accuracy'] });
-      await mlModel.fit(trainingInputTensor, trainingOutputTensor, {
+      const trainingInputs = trainingData.map((transaction) => transaction.description.split(' '));
+      const trainingLabels = trainingData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
+      const validationInputs = validationData.map((transaction) => transaction.description.split(' '));
+      const validationLabels = validationData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
+      const trainingTensor = tf.tensor2d(trainingInputs, [trainingInputs.length, trainingInputs[0].length]);
+      const trainingLabelTensor = tf.tensor1d(trainingLabels, 'int32');
+      const validationTensor = tf.tensor2d(validationInputs, [validationInputs.length, validationInputs[0].length]);
+      const validationLabelTensor = tf.tensor1d(validationLabels, 'int32');
+      await mlModel.fit(trainingTensor, trainingLabelTensor, {
         epochs: 100,
-        validationData: [validationInputTensor, validationOutputTensor],
+        validationData: [validationTensor, validationLabelTensor],
       });
-      const accuracy = mlModel.evaluate(validationInputTensor, validationOutputTensor);
+      const accuracy = await mlModel.evaluate(validationTensor, validationLabelTensor);
       setModelAccuracy(accuracy.accuracy);
     }
   };
 
   const suggestBudgetCategories = (transactions: Transaction[]): BudgetCategory[] => {
     if (mlModel) {
-      const inputs = transactions.map((transaction) => transaction.description.split(' ').map((word) => word.charCodeAt(0)));
-      const inputTensor = tf.tensor2d(inputs);
-      const outputs = mlModel.predict(inputTensor);
-      const categories = outputs.dataSync();
-      return categories.map((categoryIndex, index) => ({
-        name: budgetCategories[categoryIndex].name,
-        transactions: [transactions[index]],
-      }));
+      const transactionDescriptions = transactions.map((transaction) => transaction.description);
+      const predictions = mlModel.predict(tf.tensor2d(transactionDescriptions.map((description) => description.split(' '))));
+      const predictedCategories = predictions.argMax(1).dataSync();
+      return predictedCategories.map((predictedCategoryIndex) => budgetCategories[predictedCategoryIndex]);
     }
     return [];
   };
@@ -129,7 +123,7 @@ export default function BudgetingPage() {
   return (
     <div>
       <BudgetForm onSubmit={handleBudgetSubmit} />
-      <BudgetTable transactions={transactions} categories={budgetCategories} onCategoryChange={handleCategoryChange} />
+      <BudgetTable transactions={transactions.map(categorizeTransaction)} budgetCategories={budgetCategories} />
     </div>
   );
 }
