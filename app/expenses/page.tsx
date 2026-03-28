@@ -95,18 +95,20 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     if (loadMoreRef.current) {
-      const observerInstance = new IntersectionObserver(handleIntersection, {
-        rootMargin: '100px',
-      });
-      observerInstance.observe(loadMoreRef.current);
-      observer.current = observerInstance;
-      return () => {
-        if (observer.current) {
-          observer.current.unobserve(loadMoreRef.current);
-        }
+      const options = {
+        root: null,
+        rootMargin: '0px',
+        threshold: 1.0,
       };
+      observer.current = new IntersectionObserver(handleIntersection, options);
+      observer.current.observe(loadMoreRef.current);
     }
-  }, [handleIntersection, loadMoreRef]);
+    return () => {
+      if (observer.current) {
+        observer.current.disconnect();
+      }
+    };
+  }, [handleIntersection]);
 
   return (
     <div>
@@ -117,7 +119,6 @@ export default function ExpensesPage() {
       {hasMoreExpenses && (
         <div ref={loadMoreRef} style={{ height: '1px', visibility: 'hidden' }} />
       )}
-      {loading && <p>Loading...</p>}
     </div>
   );
 }
