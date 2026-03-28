@@ -95,30 +95,29 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     if (loadMoreRef.current) {
-      const options = {
-        root: null,
-        rootMargin: '0px',
-        threshold: 1.0,
+      const observerInstance = new IntersectionObserver(handleIntersection, {
+        rootMargin: '100px',
+      });
+      observerInstance.observe(loadMoreRef.current);
+      observer.current = observerInstance;
+      return () => {
+        if (observer.current) {
+          observer.current.unobserve(loadMoreRef.current);
+        }
       };
-      observer.current = new IntersectionObserver(handleIntersection, options);
-      observer.current.observe(loadMoreRef.current);
     }
-    return () => {
-      if (observer.current) {
-        observer.current.disconnect();
-      }
-    };
-  }, [handleIntersection]);
+  }, [handleIntersection, loadMoreRef]);
 
   return (
     <div>
+      <AddExpenseForm onAddExpense={handleAddExpense} />
       {expenses.map((expense) => (
-        <ExpenseCard key={expense.id} expense={expense} onDelete={handleDeleteExpense} />
+        <ExpenseCard key={expense.id} expense={expense} onDeleteExpense={handleDeleteExpense} />
       ))}
       {hasMoreExpenses && (
-        <div ref={loadMoreRef} style={{ height: 20, backgroundColor: 'transparent' }} />
+        <div ref={loadMoreRef} style={{ height: '1px', visibility: 'hidden' }} />
       )}
-      <AddExpenseForm onAdd={handleAddExpense} />
+      {loading && <p>Loading...</p>}
     </div>
   );
 }
