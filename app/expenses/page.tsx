@@ -57,8 +57,11 @@ export default function ExpensesPage() {
   }, [hasMoreExpenses, loading]);
 
   useEffect(() => {
-    window.addEventListener('scroll', handleScroll);
+    const timeoutId = setTimeout(() => {
+      window.addEventListener('scroll', handleScroll);
+    }, 1000);
     return () => {
+      clearTimeout(timeoutId);
       window.removeEventListener('scroll', handleScroll);
     };
   }, [handleScroll]);
@@ -92,11 +95,12 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     if (loadMoreRef.current) {
-      if (!observer.current) {
-        observer.current = new IntersectionObserver(handleIntersection, {
-          rootMargin: '100px',
-        });
-      }
+      const options = {
+        root: null,
+        rootMargin: '0px',
+        threshold: 1.0,
+      };
+      observer.current = new IntersectionObserver(handleIntersection, options);
       observer.current.observe(loadMoreRef.current);
     }
     return () => {
@@ -108,13 +112,15 @@ export default function ExpensesPage() {
 
   return (
     <div>
-      <AddExpenseForm onAddExpense={handleAddExpense} />
       {expenses.map((expense) => (
-        <ExpenseCard key={expense.id} expense={expense} onDeleteExpense={handleDeleteExpense} />
+        <ExpenseCard key={expense.id} expense={expense} onDelete={handleDeleteExpense} />
       ))}
       {hasMoreExpenses && (
-        <div ref={loadMoreRef} style={{ height: '1px', visibility: 'hidden' }} />
+        <div ref={loadMoreRef}>
+          {loading ? <p>Loading...</p> : <p>Loading more expenses...</p>}
+        </div>
       )}
+      <AddExpenseForm onAdd={handleAddExpense} />
     </div>
   );
 }
