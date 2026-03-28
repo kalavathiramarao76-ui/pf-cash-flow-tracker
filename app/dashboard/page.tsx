@@ -116,31 +116,46 @@ const DashboardPage = () => {
         text: 'Cash Flow Chart',
       },
     },
-    interaction: {
-      mode: 'index',
-      intersect: false,
-    },
-    scales: {
-      x: {
-        display: true,
-        title: {
-          display: true,
-          text: 'Date',
-        },
-      },
-      y: {
-        display: true,
-        title: {
-          display: true,
-          text: 'Amount',
-        },
-      },
-    },
   });
 
   const handleChartTypeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setChartType(event.target.value);
   };
+
+  useEffect(() => {
+    const storedTransactions = LocalStorage.get('transactions');
+    if (storedTransactions) {
+      setTransactions(storedTransactions);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (transactions.length > 0) {
+      const incomeData = transactions
+        .filter((transaction) => transaction.type === 'income')
+        .map((transaction) => transaction.amount);
+      const expenseData = transactions
+        .filter((transaction) => transaction.type === 'expense')
+        .map((transaction) => transaction.amount);
+      setChartData({
+        labels: transactions.map((transaction) => transaction.date),
+        datasets: [
+          {
+            label: 'Income',
+            data: incomeData,
+            borderColor: 'rgb(255, 99, 132)',
+            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+          },
+          {
+            label: 'Expenses',
+            data: expenseData,
+            borderColor: 'rgb(54, 162, 235)',
+            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+          },
+        ],
+      });
+    }
+  }, [transactions]);
 
   return (
     <DashboardLayout>
@@ -161,13 +176,11 @@ const DashboardPage = () => {
           <Pie options={chartOptions} data={chartData} />
         )}
       </div>
-      <div className="distribution-charts">
-        <h2>Income Distribution</h2>
-        <Pie options={chartOptions} data={incomeDistribution} />
-        <h2>Expense Distribution</h2>
-        <Pie options={chartOptions} data={expenseDistribution} />
-      </div>
       <TransactionTable transactions={transactions} />
+      <BudgetingChart
+        incomeDistribution={incomeDistribution}
+        expenseDistribution={expenseDistribution}
+      />
     </DashboardLayout>
   );
 };
