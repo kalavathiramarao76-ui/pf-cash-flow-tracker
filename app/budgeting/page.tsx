@@ -79,69 +79,59 @@ export default function BudgetingPage() {
         units: budgetCategories.length,
         activation: 'softmax',
       });
-      const output = denseLayer.apply(sequenceLayer.apply(embeddingLayer.apply(tf.tensor2d([transaction.description.split(' ')]))));
-      const predictedCategory = tf.argMax(output, 1).dataSync()[0];
-      transaction.category = budgetCategories[predictedCategory].name;
+      const model = tf.sequential();
+      model.add(embeddingLayer);
+      model.add(sequenceLayer);
+      model.add(denseLayer);
+      const predictions = model.predict(tf.tensor2d([transaction.description.split(' ')]));
+      const predictedCategoryIndex = tf.argMax(predictions, 1).dataSync()[0];
+      const predictedCategory = budgetCategories[predictedCategoryIndex];
+      return { ...transaction, category: predictedCategory.name };
+    } else {
       return transaction;
     }
-    return transaction;
-  };
-
-  const suggestBudgetCategories = (transactions: Transaction[]): BudgetCategory[] => {
-    const categoryCounts: { [category: string]: number } = {};
-    transactions.forEach((transaction) => {
-      if (transaction.category) {
-        categoryCounts[transaction.category] = (categoryCounts[transaction.category] || 0) + 1;
-      }
-    });
-    const suggestedCategories: BudgetCategory[] = [];
-    Object.keys(categoryCounts).forEach((category) => {
-      const count = categoryCounts[category];
-      const percentage = (count / transactions.length) * 100;
-      if (percentage > 5) {
-        suggestedCategories.push({
-          name: category,
-          amount: count,
-          percentage: percentage,
-        });
-      }
-    });
-    return suggestedCategories;
   };
 
   const trainModel = async () => {
     if (mlModel) {
       const trainingInputs = trainingData.map((transaction) => transaction.description.split(' '));
-      const trainingOutputs = trainingData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
+      const trainingOutputs = trainingData.map((transaction) => {
+        const categoryIndex = budgetCategories.findIndex((category) => category.name === transaction.category);
+        return categoryIndex !== -1 ? categoryIndex : 0;
+      });
       const validationInputs = validationData.map((transaction) => transaction.description.split(' '));
-      const validationOutputs = validationData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
-      const trainingTensor = tf.tensor2d(trainingInputs, [trainingInputs.length, trainingInputs[0].length]);
+      const validationOutputs = validationData.map((transaction) => {
+        const categoryIndex = budgetCategories.findIndex((category) => category.name === transaction.category);
+        return categoryIndex !== -1 ? categoryIndex : 0;
+      });
+      const trainingTensor = tf.tensor2d(trainingInputs);
       const trainingOutputTensor = tf.tensor1d(trainingOutputs, 'int32');
-      const validationTensor = tf.tensor2d(validationInputs, [validationInputs.length, validationInputs[0].length]);
+      const validationTensor = tf.tensor2d(validationInputs);
       const validationOutputTensor = tf.tensor1d(validationOutputs, 'int32');
       await mlModel.fit(trainingTensor, trainingOutputTensor, {
         epochs: 100,
         validationData: [validationTensor, validationOutputTensor],
       });
-      const accuracy = await mlModel.evaluate(validationTensor, validationOutputTensor);
-      setModelAccuracy(accuracy.accuracy);
+      const accuracy = mlModel.evaluate(validationTensor, validationOutputTensor);
+      setModelAccuracy(accuracy);
+    }
+  };
+
+  const suggestBudgetCategories = (transactions: Transaction[]) => {
+    if (mlModel) {
+      const inputs = transactions.map((transaction) => transaction.description.split(' '));
+      const predictions = mlModel.predict(tf.tensor2d(inputs));
+      const predictedCategories = predictions.argMax(1).dataSync();
+      return predictedCategories.map((predictedCategoryIndex) => budgetCategories[predictedCategoryIndex]);
+    } else {
+      return [];
     }
   };
 
   return (
     <div>
-      <h1>Automated Cash Flow Management</h1>
-      <BudgetForm
-        budgetCategories={budgetCategories}
-        handleBudgetSubmit={handleBudgetSubmit}
-        suggestedCategories={suggestedCategories}
-      />
-      <BudgetTable
-        transactions={transactions}
-        budgetCategories={budgetCategories}
-        handleCategoryChange={handleCategoryChange}
-        selectedCategory={selectedCategory}
-      />
+      <BudgetForm onSubmit={handleBudgetSubmit} />
+      <BudgetTable transactions={transactions.map(categorizeTransaction)} />
     </div>
   );
 }
