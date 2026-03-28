@@ -83,8 +83,8 @@ export default function BudgetingPage() {
       model.add(embeddingLayer);
       model.add(sequenceLayer);
       model.add(denseLayer);
-      const predictions = model.predict(tf.tensor2d([transaction.description.split(' ')]));
-      const predictedCategoryIndex = predictions.argMax(1).dataSync()[0];
+      const predictions = model.predict(transaction.description.split(' '));
+      const predictedCategoryIndex = tf.argMax(predictions, 1).dataSync()[0];
       const predictedCategory = budgetCategories[predictedCategoryIndex];
       return { ...transaction, category: predictedCategory.name };
     }
@@ -97,25 +97,26 @@ export default function BudgetingPage() {
       const trainingLabels = trainingData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
       const validationInputs = validationData.map((transaction) => transaction.description.split(' '));
       const validationLabels = validationData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
-      const trainingTensor = tf.tensor2d(trainingInputs, [trainingInputs.length, trainingInputs[0].length]);
-      const trainingLabelTensor = tf.tensor1d(trainingLabels, 'int32');
-      const validationTensor = tf.tensor2d(validationInputs, [validationInputs.length, validationInputs[0].length]);
-      const validationLabelTensor = tf.tensor1d(validationLabels, 'int32');
-      await mlModel.fit(trainingTensor, trainingLabelTensor, {
+      const optimizer = tf.optimizers.adam();
+      mlModel.compile({ optimizer, loss: 'sparseCategoricalCrossentropy', metrics: ['accuracy'] });
+      await mlModel.fit(tf.tensor2d(trainingInputs, [trainingInputs.length, trainingInputs[0].length]), tf.tensor1d(trainingLabels), {
         epochs: 100,
-        validationData: [validationTensor, validationLabelTensor],
+        validationData: [tf.tensor2d(validationInputs, [validationInputs.length, validationInputs[0].length]), tf.tensor1d(validationLabels)],
       });
-      const accuracy = await mlModel.evaluate(validationTensor, validationLabelTensor);
-      setModelAccuracy(accuracy.accuracy);
+      const accuracy = mlModel.evaluate(tf.tensor2d(validationInputs, [validationInputs.length, validationInputs[0].length]), tf.tensor1d(validationLabels));
+      setModelAccuracy(accuracy.accuracy.dataSync()[0]);
     }
   };
 
-  const suggestBudgetCategories = (transactions: Transaction[]): BudgetCategory[] => {
+  const suggestBudgetCategories = (transactions: Transaction[]) => {
     if (mlModel) {
-      const transactionDescriptions = transactions.map((transaction) => transaction.description);
-      const predictions = mlModel.predict(tf.tensor2d(transactionDescriptions.map((description) => description.split(' '))));
+      const inputs = transactions.map((transaction) => transaction.description.split(' '));
+      const predictions = mlModel.predict(tf.tensor2d(inputs, [inputs.length, inputs[0].length]));
       const predictedCategories = predictions.argMax(1).dataSync();
-      return predictedCategories.map((predictedCategoryIndex) => budgetCategories[predictedCategoryIndex]);
+      return predictedCategories.map((predictedCategoryIndex, index) => ({
+        name: budgetCategories[predictedCategoryIndex].name,
+        transactions: [transactions[index]],
+      }));
     }
     return [];
   };
@@ -123,7 +124,7 @@ export default function BudgetingPage() {
   return (
     <div>
       <BudgetForm onSubmit={handleBudgetSubmit} />
-      <BudgetTable transactions={transactions.map(categorizeTransaction)} budgetCategories={budgetCategories} />
+      <BudgetTable transactions={transactions} categorizeTransaction={categorizeTransaction} />
     </div>
   );
 }
