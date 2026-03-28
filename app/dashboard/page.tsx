@@ -113,27 +113,7 @@ const DashboardPage = () => {
       },
       title: {
         display: true,
-        text: 'Financial Overview',
-      },
-    },
-    interaction: {
-      mode: 'index',
-      intersect: false,
-    },
-    scales: {
-      x: {
-        display: true,
-        title: {
-          display: true,
-          text: 'Date',
-        },
-      },
-      y: {
-        display: true,
-        title: {
-          display: true,
-          text: 'Amount',
-        },
+        text: 'Cash Flow Chart',
       },
     },
   });
@@ -141,6 +121,133 @@ const DashboardPage = () => {
   const handleChartTypeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
     setChartType(event.target.value);
   };
+
+  const handleDateChange = (date: Date) => {
+    setSelectedDate(date);
+  };
+
+  useEffect(() => {
+    const storedTransactions = LocalStorage.getTransactions();
+    if (storedTransactions) {
+      setTransactions(storedTransactions);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (transactions.length > 0) {
+      const incomeData = transactions
+        .filter((transaction) => transaction.type === 'income')
+        .map((transaction) => transaction.amount);
+      const expensesData = transactions
+        .filter((transaction) => transaction.type === 'expense')
+        .map((transaction) => transaction.amount);
+      setChartData({
+        labels: transactions.map((transaction) => transaction.date),
+        datasets: [
+          {
+            label: 'Income',
+            data: incomeData,
+            borderColor: 'rgb(255, 99, 132)',
+            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+          },
+          {
+            label: 'Expenses',
+            data: expensesData,
+            borderColor: 'rgb(54, 162, 235)',
+            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+          },
+        ],
+      });
+    }
+  }, [transactions]);
+
+  useEffect(() => {
+    if (selectedDate) {
+      const filteredTransactions = transactions.filter(
+        (transaction) => transaction.date === selectedDate
+      );
+      setDetailedTransactions(filteredTransactions);
+    }
+  }, [selectedDate, transactions]);
+
+  useEffect(() => {
+    if (transactions.length > 0) {
+      const incomeDistributionData = transactions
+        .filter((transaction) => transaction.type === 'income')
+        .reduce((acc, transaction) => {
+          const category = transaction.category;
+          if (!acc[category]) {
+            acc[category] = 0;
+          }
+          acc[category] += transaction.amount;
+          return acc;
+        }, {});
+      const expenseDistributionData = transactions
+        .filter((transaction) => transaction.type === 'expense')
+        .reduce((acc, transaction) => {
+          const category = transaction.category;
+          if (!acc[category]) {
+            acc[category] = 0;
+          }
+          acc[category] += transaction.amount;
+          return acc;
+        }, {});
+
+      setIncomeDistribution({
+        labels: Object.keys(incomeDistributionData),
+        datasets: [
+          {
+            label: 'Income Distribution',
+            data: Object.values(incomeDistributionData),
+            backgroundColor: [
+              'rgba(255, 99, 132, 0.2)',
+              'rgba(54, 162, 235, 0.2)',
+              'rgba(255, 206, 86, 0.2)',
+              'rgba(75, 192, 192, 0.2)',
+              'rgba(153, 102, 255, 0.2)',
+              'rgba(255, 159, 64, 0.2)',
+            ],
+            borderColor: [
+              'rgba(255, 99, 132, 1)',
+              'rgba(54, 162, 235, 1)',
+              'rgba(255, 206, 86, 1)',
+              'rgba(75, 192, 192, 1)',
+              'rgba(153, 102, 255, 1)',
+              'rgba(255, 159, 64, 1)',
+            ],
+            borderWidth: 1,
+          },
+        ],
+      });
+
+      setExpenseDistribution({
+        labels: Object.keys(expenseDistributionData),
+        datasets: [
+          {
+            label: 'Expense Distribution',
+            data: Object.values(expenseDistributionData),
+            backgroundColor: [
+              'rgba(255, 99, 132, 0.2)',
+              'rgba(54, 162, 235, 0.2)',
+              'rgba(255, 206, 86, 0.2)',
+              'rgba(75, 192, 192, 0.2)',
+              'rgba(153, 102, 255, 0.2)',
+              'rgba(255, 159, 64, 0.2)',
+            ],
+            borderColor: [
+              'rgba(255, 99, 132, 1)',
+              'rgba(54, 162, 235, 1)',
+              'rgba(255, 206, 86, 1)',
+              'rgba(75, 192, 192, 1)',
+              'rgba(153, 102, 255, 1)',
+              'rgba(255, 159, 64, 1)',
+            ],
+            borderWidth: 1,
+          },
+        ],
+      });
+    }
+  }, [transactions]);
 
   return (
     <DashboardLayout>
@@ -163,11 +270,14 @@ const DashboardPage = () => {
       </div>
       <div className="distribution-charts">
         <h2>Income Distribution</h2>
-        <Pie options={chartOptions} data={incomeDistribution} />
+        <Pie data={incomeDistribution} />
         <h2>Expense Distribution</h2>
-        <Pie options={chartOptions} data={expenseDistribution} />
+        <Pie data={expenseDistribution} />
       </div>
-      <TransactionTable transactions={transactions} />
+      <TransactionTable
+        transactions={detailedTransactions}
+        handleDateChange={handleDateChange}
+      />
     </DashboardLayout>
   );
 };

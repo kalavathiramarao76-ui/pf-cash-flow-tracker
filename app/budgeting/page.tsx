@@ -79,49 +79,58 @@ export default function BudgetingPage() {
         units: budgetCategories.length,
         activation: 'softmax',
       });
-      const output = denseLayer.apply(sequenceLayer.apply(embeddingLayer.apply(tf.tensor2d([transaction.description.split(' ')]))));
-      const prediction = tf.argMax(output, 1).dataSync()[0];
-      transaction.category = budgetCategories[prediction].name;
+      const model = tf.sequential();
+      model.add(embeddingLayer);
+      model.add(sequenceLayer);
+      model.add(denseLayer);
+      const predictions = model.predict(tf.tensor2d([transaction.description.split(' ')]));
+      const categoryIndex = tf.argMax(predictions, 1).dataSync()[0];
+      const category = budgetCategories[categoryIndex];
+      return { ...transaction, category };
     }
     return transaction;
-  };
-
-  const suggestBudgetCategories = (transactions: Transaction[]): BudgetCategory[] => {
-    if (mlModel) {
-      const transactionDescriptions = transactions.map((transaction) => transaction.description);
-      const input = tf.tensor2d(transactionDescriptions.map((description) => description.split(' ')));
-      const output = mlModel.predict(input);
-      const predictions = tf.argMax(output, 1).dataSync();
-      const suggestedCategories: BudgetCategory[] = [];
-      for (let i = 0; i < predictions.length; i++) {
-        const category = budgetCategories[predictions[i]];
-        if (!suggestedCategories.find((suggestedCategory) => suggestedCategory.name === category.name)) {
-          suggestedCategories.push(category);
-        }
-      }
-      return suggestedCategories;
-    }
-    return [];
   };
 
   const trainModel = async () => {
     if (mlModel) {
       const trainingInputs = trainingData.map((transaction) => transaction.description.split(' '));
-      const trainingOutputs = trainingData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
+      const trainingLabels = trainingData.map((transaction) => budgetCategories.indexOf(transaction.category));
       const validationInputs = validationData.map((transaction) => transaction.description.split(' '));
-      const validationOutputs = validationData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
-      const trainingInputTensor = tf.tensor2d(trainingInputs);
-      const trainingOutputTensor = tf.tensor1d(trainingOutputs);
-      const validationInputTensor = tf.tensor2d(validationInputs);
-      const validationOutputTensor = tf.tensor1d(validationOutputs);
-      await mlModel.fit(trainingInputTensor, trainingOutputTensor, {
-        epochs: 10,
-        validationData: [validationInputTensor, validationOutputTensor],
+      const validationLabels = validationData.map((transaction) => budgetCategories.indexOf(transaction.category));
+      const trainingTensor = tf.tensor2d(trainingInputs);
+      const validationTensor = tf.tensor2d(validationInputs);
+      const labelsTensor = tf.tensor1d(trainingLabels);
+      const validationLabelsTensor = tf.tensor1d(validationLabels);
+      await mlModel.fit(trainingTensor, labelsTensor, {
+        epochs: 100,
+        validationData: [validationTensor, validationLabelsTensor],
       });
-      const accuracy = mlModel.evaluate(validationInputTensor, validationOutputTensor);
-      setModelAccuracy(accuracy);
+      const accuracy = await mlModel.evaluate(validationTensor, validationLabelsTensor);
+      setModelAccuracy(accuracy.accuracy);
     }
   };
+
+  const suggestBudgetCategories = (transactions: Transaction[]) => {
+    if (mlModel) {
+      const inputs = transactions.map((transaction) => transaction.description.split(' '));
+      const predictions = mlModel.predict(tf.tensor2d(inputs));
+      const categories = predictions.argMax(1).dataSync();
+      return categories.map((categoryIndex) => budgetCategories[categoryIndex]);
+    }
+    return [];
+  };
+
+  const autoCategorizeTransactions = () => {
+    if (mlModel) {
+      const categorizedTransactions = transactions.map((transaction) => categorizeTransaction(transaction));
+      setTransactions(categorizedTransactions);
+      saveTransactions(categorizedTransactions);
+    }
+  };
+
+  useEffect(() => {
+    autoCategorizeTransactions();
+  }, [mlModel, transactions]);
 
   return (
     <div>
@@ -132,19 +141,8 @@ export default function BudgetingPage() {
       <BudgetTable
         transactions={transactions}
         budgetCategories={budgetCategories}
-        selectedCategory={selectedCategory}
         handleCategoryChange={handleCategoryChange}
       />
-      {suggestedCategories.length > 0 && (
-        <div>
-          <h2>Suggested Budget Categories:</h2>
-          <ul>
-            {suggestedCategories.map((category) => (
-              <li key={category.name}>{category.name}</li>
-            ))}
-          </ul>
-        </div>
-      )}
     </div>
   );
 }
