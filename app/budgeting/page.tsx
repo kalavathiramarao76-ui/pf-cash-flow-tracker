@@ -84,41 +84,47 @@ export default function BudgetingPage() {
       model.add(sequenceLayer);
       model.add(denseLayer);
       const predictions = model.predict(tf.tensor2d([transaction.description.split(' ')]));
-      const predictedCategoryIndex = tf.argMax(predictions, 1).dataSync()[0];
-      const predictedCategory = budgetCategories[predictedCategoryIndex];
-      return { ...transaction, category: predictedCategory };
+      const categoryIndex = tf.argMax(predictions, 1).dataSync()[0];
+      const category = budgetCategories[categoryIndex];
+      return { ...transaction, category };
+    } else {
+      return transaction;
     }
-    return transaction;
   };
 
   const trainModel = async () => {
     if (mlModel) {
       const trainingInputs = trainingData.map((transaction) => transaction.description.split(' '));
-      const trainingLabels = trainingData.map((transaction) => budgetCategories.indexOf(transaction.category));
-      const validationInputs = validationData.map((transaction) => transaction.description.split(' '));
-      const validationLabels = validationData.map((transaction) => budgetCategories.indexOf(transaction.category));
-      const trainingTensor = tf.tensor2d(trainingInputs, [trainingInputs.length, trainingInputs[0].length]);
-      const trainingLabelsTensor = tf.tensor1d(trainingLabels, 'int32');
-      const validationTensor = tf.tensor2d(validationInputs, [validationInputs.length, validationInputs[0].length]);
-      const validationLabelsTensor = tf.tensor1d(validationLabels, 'int32');
-      await mlModel.fit(trainingTensor, trainingLabelsTensor, {
-        epochs: 100,
-        validationData: [validationTensor, validationLabelsTensor],
+      const trainingOutputs = trainingData.map((transaction) => {
+        const categoryIndex = budgetCategories.findIndex((category) => category.name === transaction.category);
+        return categoryIndex !== -1 ? categoryIndex : 0;
       });
-      const accuracy = mlModel.evaluate(validationTensor, validationLabelsTensor);
-      setModelAccuracy(accuracy);
+      const validationInputs = validationData.map((transaction) => transaction.description.split(' '));
+      const validationOutputs = validationData.map((transaction) => {
+        const categoryIndex = budgetCategories.findIndex((category) => category.name === transaction.category);
+        return categoryIndex !== -1 ? categoryIndex : 0;
+      });
+      const optimizer = tf.optimizers.adam();
+      mlModel.compile({ optimizer, loss: 'sparseCategoricalCrossentropy', metrics: ['accuracy'] });
+      await mlModel.fit(tf.tensor2d(trainingInputs), tf.tensor1d(trainingOutputs), {
+        epochs: 100,
+        validationData: [tf.tensor2d(validationInputs), tf.tensor1d(validationOutputs)],
+      });
+      const accuracy = mlModel.evaluate(tf.tensor2d(validationInputs), tf.tensor1d(validationOutputs));
+      setModelAccuracy(accuracy.accuracy);
     }
   };
 
-  const suggestBudgetCategories = (transactions: Transaction[]) => {
-    const categories: BudgetCategory[] = [];
-    transactions.forEach((transaction) => {
-      const predictedCategory = categorizeTransaction(transaction).category;
-      if (!categories.includes(predictedCategory)) {
-        categories.push(predictedCategory);
-      }
-    });
-    return categories;
+  const suggestBudgetCategories = (transactions: Transaction[]): BudgetCategory[] => {
+    if (mlModel) {
+      const inputs = transactions.map((transaction) => transaction.description.split(' '));
+      const predictions = mlModel.predict(tf.tensor2d(inputs));
+      const categoryIndices = tf.argMax(predictions, 1).dataSync();
+      const suggestedCategories = categoryIndices.map((index) => budgetCategories[index]);
+      return suggestedCategories;
+    } else {
+      return [];
+    }
   };
 
   return (
@@ -132,6 +138,7 @@ export default function BudgetingPage() {
         budgetCategories={budgetCategories}
         selectedCategory={selectedCategory}
         handleCategoryChange={handleCategoryChange}
+        categorizeTransaction={categorizeTransaction}
       />
     </div>
   );
