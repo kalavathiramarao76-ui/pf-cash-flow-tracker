@@ -95,12 +95,9 @@ export default function ExpensesPage() {
 
   useEffect(() => {
     if (loadMoreRef.current) {
-      const options = {
-        root: null,
-        rootMargin: '0px',
-        threshold: 1.0,
-      };
-      observer.current = new IntersectionObserver(handleIntersection, options);
+      observer.current = new IntersectionObserver(handleIntersection, {
+        rootMargin: '100px',
+      });
       observer.current.observe(loadMoreRef.current);
     }
     return () => {
@@ -114,10 +111,10 @@ export default function ExpensesPage() {
     <div>
       <AddExpenseForm onAddExpense={handleAddExpense} />
       {expenses.map((expense) => (
-        <ExpenseCard key={expense.id} expense={expense} onDeleteExpense={handleDeleteExpense} />
+        <ExpenseCard key={expense.id} expense={expense} onDelete={handleDeleteExpense} />
       ))}
       {hasMoreExpenses && (
-        <div ref={loadMoreRef} style={{ height: '1px', visibility: 'hidden' }} />
+        <div ref={loadMoreRef} style={{ height: '1px' }} />
       )}
     </div>
   );

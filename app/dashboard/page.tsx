@@ -107,13 +107,29 @@ const DashboardPage = () => {
   const [chartType, setChartType] = useState('line');
   const [chartOptions, setChartOptions] = useState({
     responsive: true,
+    interaction: {
+      intersect: false,
+    },
+    scales: {
+      x: {
+        display: true,
+        title: {
+          display: true,
+          text: 'Date',
+        },
+      },
+      y: {
+        display: true,
+        title: {
+          display: true,
+          text: 'Amount',
+        },
+      },
+    },
     plugins: {
       legend: {
-        position: 'top',
-      },
-      title: {
         display: true,
-        text: 'Cash Flow Chart',
+        position: 'bottom',
       },
     },
   });
@@ -160,11 +176,7 @@ const DashboardPage = () => {
           },
         ],
       });
-    }
-  }, [transactions]);
 
-  useEffect(() => {
-    if (transactions.length > 0) {
       const incomeDistributionData = transactions
         .filter((transaction: any) => transaction.type === 'income')
         .reduce((acc: any, transaction: any) => {
@@ -185,18 +197,12 @@ const DashboardPage = () => {
           return acc;
         }, {});
 
-      const incomeDistributionLabels = Object.keys(incomeDistributionData);
-      const incomeDistributionValues = Object.values(incomeDistributionData);
-
-      const expenseDistributionLabels = Object.keys(expenseDistributionData);
-      const expenseDistributionValues = Object.values(expenseDistributionData);
-
       setIncomeDistribution({
-        labels: incomeDistributionLabels,
+        labels: Object.keys(incomeDistributionData),
         datasets: [
           {
             label: 'Income Distribution',
-            data: incomeDistributionValues,
+            data: Object.values(incomeDistributionData),
             backgroundColor: [
               'rgba(255, 99, 132, 0.2)',
               'rgba(54, 162, 235, 0.2)',
@@ -219,11 +225,11 @@ const DashboardPage = () => {
       });
 
       setExpenseDistribution({
-        labels: expenseDistributionLabels,
+        labels: Object.keys(expenseDistributionData),
         datasets: [
           {
             label: 'Expense Distribution',
-            data: expenseDistributionValues,
+            data: Object.values(expenseDistributionData),
             backgroundColor: [
               'rgba(255, 99, 132, 0.2)',
               'rgba(54, 162, 235, 0.2)',
@@ -251,50 +257,26 @@ const DashboardPage = () => {
     <DashboardLayout>
       <OverviewCard income={income} expenses={expenses} budget={budget} />
       <div className="chart-container">
-        <div className="chart-type-selector">
-          <select value={chartType} onChange={handleChartTypeChange}>
-            <option value="line">Line Chart</option>
-            <option value="bar">Bar Chart</option>
-            <option value="pie">Pie Chart</option>
-          </select>
-        </div>
+        <select value={chartType} onChange={handleChartTypeChange}>
+          <option value="line">Line Chart</option>
+          <option value="bar">Bar Chart</option>
+          <option value="pie">Pie Chart</option>
+        </select>
         {chartType === 'line' && (
-          <Line
-            data={chartData}
-            options={chartOptions}
-            className="chart"
-          />
+          <Line options={chartOptions} data={chartData} />
         )}
         {chartType === 'bar' && (
-          <Bar
-            data={chartData}
-            options={chartOptions}
-            className="chart"
-          />
+          <Bar options={chartOptions} data={chartData} />
         )}
         {chartType === 'pie' && (
-          <Pie
-            data={chartData}
-            options={chartOptions}
-            className="chart"
-          />
+          <Pie options={chartOptions} data={chartData} />
         )}
       </div>
       <div className="distribution-charts">
-        <div className="income-distribution-chart">
-          <Pie
-            data={incomeDistribution}
-            options={chartOptions}
-            className="chart"
-          />
-        </div>
-        <div className="expense-distribution-chart">
-          <Pie
-            data={expenseDistribution}
-            options={chartOptions}
-            className="chart"
-          />
-        </div>
+        <h2>Income Distribution</h2>
+        <Pie data={incomeDistribution} />
+        <h2>Expense Distribution</h2>
+        <Pie data={expenseDistribution} />
       </div>
       <TransactionTable
         transactions={transactions}
