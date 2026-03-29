@@ -84,7 +84,7 @@ export default function BudgetingPage() {
       model.add(sequenceLayer);
       model.add(denseLayer);
       const prediction = model.predict(tf.tensor2d([transaction.description.split(' ')]));
-      const predictedCategoryIndex = prediction.argMax(1).dataSync()[0];
+      const predictedCategoryIndex = tf.argMax(prediction, 1).dataSync()[0];
       const predictedCategory = budgetCategories[predictedCategoryIndex];
       return { ...transaction, category: predictedCategory };
     }
@@ -94,43 +94,45 @@ export default function BudgetingPage() {
   const trainModel = async () => {
     if (mlModel) {
       const trainingInputs = trainingData.map((transaction) => transaction.description.split(' '));
-      const trainingOutputs = trainingData.map((transaction) => {
-        const categoryIndex = budgetCategories.findIndex((category) => category.name === transaction.category);
-        return categoryIndex !== -1 ? categoryIndex : 0;
-      });
+      const trainingLabels = trainingData.map((transaction) => budgetCategories.indexOf(transaction.category));
       const validationInputs = validationData.map((transaction) => transaction.description.split(' '));
-      const validationOutputs = validationData.map((transaction) => {
-        const categoryIndex = budgetCategories.findIndex((category) => category.name === transaction.category);
-        return categoryIndex !== -1 ? categoryIndex : 0;
-      });
-      await mlModel.compile({ optimizer: tf.optimizers.adam(), loss: 'sparseCategoricalCrossentropy', metrics: ['accuracy'] });
-      await mlModel.fit(tf.tensor2d(trainingInputs), tf.tensor1d(trainingOutputs, 'int32'), {
+      const validationLabels = validationData.map((transaction) => budgetCategories.indexOf(transaction.category));
+      const trainingTensor = tf.tensor2d(trainingInputs);
+      const validationTensor = tf.tensor2d(validationInputs);
+      const trainingLabelsTensor = tf.tensor1d(trainingLabels, 'int32');
+      const validationLabelsTensor = tf.tensor1d(validationLabels, 'int32');
+      await mlModel.fit(trainingTensor, trainingLabelsTensor, {
         epochs: 100,
-        validationData: [tf.tensor2d(validationInputs), tf.tensor1d(validationOutputs, 'int32')],
+        validationData: [validationTensor, validationLabelsTensor],
       });
-      const accuracy = mlModel.evaluate(tf.tensor2d(validationInputs), tf.tensor1d(validationOutputs, 'int32'));
-      setModelAccuracy(accuracy.accuracy.dataSync()[0]);
+      const accuracy = mlModel.evaluate(validationTensor, validationLabelsTensor);
+      setModelAccuracy(accuracy);
     }
   };
 
   const suggestBudgetCategories = (transactions: Transaction[]) => {
-    if (mlModel) {
-      const inputs = transactions.map((transaction) => transaction.description.split(' '));
-      const predictions = mlModel.predict(tf.tensor2d(inputs));
-      const predictedCategories = predictions.argMax(1).dataSync();
-      return predictedCategories.map((predictedCategoryIndex, index) => {
-        const transaction = transactions[index];
-        const predictedCategory = budgetCategories[predictedCategoryIndex];
-        return { ...transaction, category: predictedCategory };
-      });
-    }
-    return transactions;
+    const suggestedCategories: BudgetCategory[] = [];
+    transactions.forEach((transaction) => {
+      const predictedCategory = categorizeTransaction(transaction);
+      if (!suggestedCategories.includes(predictedCategory.category)) {
+        suggestedCategories.push(predictedCategory.category);
+      }
+    });
+    return suggestedCategories;
   };
 
   return (
     <div>
-      <BudgetForm onSubmit={handleBudgetSubmit} />
-      <BudgetTable transactions={transactions} onCategoryChange={handleCategoryChange} />
+      <BudgetForm
+        budgetCategories={budgetCategories}
+        handleBudgetSubmit={handleBudgetSubmit}
+      />
+      <BudgetTable
+        transactions={transactions}
+        budgetCategories={budgetCategories}
+        selectedCategory={selectedCategory}
+        handleCategoryChange={handleCategoryChange}
+      />
     </div>
   );
 }
