@@ -118,67 +118,121 @@ const DashboardPage = () => {
     },
   });
 
+  const handleChartTypeChange = (event: React.ChangeEvent<HTMLSelectElement>) => {
+    setChartType(event.target.value);
+  };
+
+  const handleDateChange = (date: Date) => {
+    setSelectedDate(date);
+  };
+
+  useEffect(() => {
+    const storedTransactions = LocalStorage.getTransactions();
+    if (storedTransactions) {
+      setTransactions(storedTransactions);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (transactions.length > 0) {
+      const incomeData = transactions
+        .filter((transaction) => transaction.type === 'income')
+        .map((transaction) => transaction.amount);
+      const expensesData = transactions
+        .filter((transaction) => transaction.type === 'expense')
+        .map((transaction) => transaction.amount);
+      setIncome(incomeData.reduce((a, b) => a + b, 0));
+      setExpenses(expensesData.reduce((a, b) => a + b, 0));
+      setBudget(income - expenses);
+      setChartData({
+        labels: transactions.map((transaction) => transaction.date),
+        datasets: [
+          {
+            label: 'Income',
+            data: incomeData,
+            borderColor: 'rgb(255, 99, 132)',
+            backgroundColor: 'rgba(255, 99, 132, 0.2)',
+          },
+          {
+            label: 'Expenses',
+            data: expensesData,
+            borderColor: 'rgb(54, 162, 235)',
+            backgroundColor: 'rgba(54, 162, 235, 0.2)',
+          },
+        ],
+      });
+    }
+  }, [transactions]);
+
+  useEffect(() => {
+    if (selectedDate) {
+      const filteredTransactions = transactions.filter(
+        (transaction) => transaction.date === selectedDate
+      );
+      setDetailedTransactions(filteredTransactions);
+    }
+  }, [selectedDate, transactions]);
+
+  useEffect(() => {
+    if (detailedTransactions.length > 0) {
+      const incomeDistributionData = detailedTransactions
+        .filter((transaction) => transaction.type === 'income')
+        .map((transaction) => transaction.amount);
+      const expenseDistributionData = detailedTransactions
+        .filter((transaction) => transaction.type === 'expense')
+        .map((transaction) => transaction.amount);
+      setIncomeDistribution({
+        labels: ['Income'],
+        datasets: [
+          {
+            label: 'Income Distribution',
+            data: [incomeDistributionData.reduce((a, b) => a + b, 0)],
+            backgroundColor: ['rgba(255, 99, 132, 0.2)'],
+            borderColor: ['rgba(255, 99, 132, 1)'],
+            borderWidth: 1,
+          },
+        ],
+      });
+      setExpenseDistribution({
+        labels: ['Expenses'],
+        datasets: [
+          {
+            label: 'Expense Distribution',
+            data: [expenseDistributionData.reduce((a, b) => a + b, 0)],
+            backgroundColor: ['rgba(54, 162, 235, 0.2)'],
+            borderColor: ['rgba(54, 162, 235, 1)'],
+            borderWidth: 1,
+          },
+        ],
+      });
+    }
+  }, [detailedTransactions]);
+
   return (
     <DashboardLayout>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <OverviewCard title="Total Income" amount={income} />
-        <OverviewCard title="Total Expenses" amount={expenses} />
-        <OverviewCard title="Remaining Budget" amount={budget} />
-      </div>
-      <div className="mt-4">
-        <div className="flex justify-between mb-4">
-          <h2 className="text-lg font-bold">Transaction History</h2>
-          <select
-            className="px-4 py-2 border border-gray-300 rounded-md"
-            value={chartType}
-            onChange={(e) => setChartType(e.target.value)}
-          >
-            <option value="line">Line Chart</option>
-            <option value="bar">Bar Chart</option>
-            <option value="pie">Pie Chart</option>
-          </select>
-        </div>
+      <OverviewCard income={income} expenses={expenses} budget={budget} />
+      <div className="chart-container">
+        <select value={chartType} onChange={handleChartTypeChange}>
+          <option value="line">Line Chart</option>
+          <option value="bar">Bar Chart</option>
+          <option value="pie">Pie Chart</option>
+        </select>
         {chartType === 'line' && (
-          <Line
-            options={chartOptions}
-            data={chartData}
-            className="h-64 w-full"
-          />
+          <Line options={chartOptions} data={chartData} />
         )}
         {chartType === 'bar' && (
-          <Bar
-            options={chartOptions}
-            data={chartData}
-            className="h-64 w-full"
-          />
+          <Bar options={chartOptions} data={chartData} />
         )}
         {chartType === 'pie' && (
-          <Pie
-            options={chartOptions}
-            data={chartData}
-            className="h-64 w-full"
-          />
+          <Pie options={chartOptions} data={chartData} />
         )}
       </div>
-      <div className="mt-4">
-        <h2 className="text-lg font-bold">Income Distribution</h2>
-        <Pie
-          options={chartOptions}
-          data={incomeDistribution}
-          className="h-64 w-full"
-        />
-      </div>
-      <div className="mt-4">
-        <h2 className="text-lg font-bold">Expense Distribution</h2>
-        <Pie
-          options={chartOptions}
-          data={expenseDistribution}
-          className="h-64 w-full"
-        />
-      </div>
-      <div className="mt-4">
-        <h2 className="text-lg font-bold">Transaction Table</h2>
-        <TransactionTable transactions={transactions} />
+      <TransactionTable transactions={transactions} />
+      <div className="distribution-charts">
+        <h2>Income Distribution</h2>
+        <Pie data={incomeDistribution} />
+        <h2>Expense Distribution</h2>
+        <Pie data={expenseDistribution} />
       </div>
     </DashboardLayout>
   );

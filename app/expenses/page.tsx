@@ -116,7 +116,9 @@ export default function ExpensesPage() {
         <ExpenseCard key={expense.id} expense={expense} onDelete={handleDeleteExpense} />
       ))}
       {hasMoreExpenses && (
-        <div ref={loadMoreRef} style={{ height: '1px', visibility: 'hidden' }} />
+        <div ref={loadMoreRef}>
+          {loading ? <p>Loading...</p> : <p>Load more</p>}
+        </div>
       )}
       <AddExpenseForm onAdd={handleAddExpense} />
     </div>

@@ -84,56 +84,63 @@ export default function BudgetingPage() {
       model.add(sequenceLayer);
       model.add(denseLayer);
       const predictions = model.predict(transaction.description);
-      const categoryIndex = tf.argMax(predictions, 1).dataSync()[0];
-      transaction.category = budgetCategories[categoryIndex].name;
-      return transaction;
-    } else {
-      return transaction;
+      const predictedCategoryIndex = tf.argMax(predictions, 1).dataSync()[0];
+      const predictedCategory = budgetCategories[predictedCategoryIndex];
+      return { ...transaction, category: predictedCategory.name };
     }
+    return transaction;
   };
 
   const suggestBudgetCategories = (transactions: Transaction[]): BudgetCategory[] => {
-    if (mlModel) {
-      const transactionDescriptions = transactions.map((transaction) => transaction.description);
-      const predictions = mlModel.predict(transactionDescriptions);
-      const suggestedCategories: BudgetCategory[] = [];
-      for (let i = 0; i < predictions.shape[0]; i++) {
-        const categoryIndex = tf.argMax(predictions.slice([i], [1]), 1).dataSync()[0];
-        suggestedCategories.push(budgetCategories[categoryIndex]);
+    const categories: BudgetCategory[] = [];
+    const categoryCounts: { [category: string]: number } = {};
+    transactions.forEach((transaction) => {
+      const category = categorizeTransaction(transaction).category;
+      if (categoryCounts[category]) {
+        categoryCounts[category]++;
+      } else {
+        categoryCounts[category] = 1;
       }
-      return suggestedCategories;
-    } else {
-      return [];
-    }
+    });
+    Object.keys(categoryCounts).forEach((category) => {
+      const count = categoryCounts[category];
+      const percentage = (count / transactions.length) * 100;
+      categories.push({ name: category, percentage });
+    });
+    return categories;
   };
 
   const trainModel = async () => {
     if (mlModel) {
-      const trainingDescriptions = trainingData.map((transaction) => transaction.description);
-      const trainingLabels = trainingData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
-      const validationDescriptions = validationData.map((transaction) => transaction.description);
-      const validationLabels = validationData.map((transaction) => budgetCategories.findIndex((category) => category.name === transaction.category));
-      await mlModel.fit(tf.tensor2d(trainingDescriptions, [trainingDescriptions.length, 1]), tf.tensor1d(trainingLabels), {
-        epochs: 10,
-        validationData: [tf.tensor2d(validationDescriptions, [validationDescriptions.length, 1]), tf.tensor1d(validationLabels)],
+      const trainingInputs = trainingData.map((transaction) => transaction.description);
+      const trainingOutputs = trainingData.map((transaction) => {
+        const categoryIndex = budgetCategories.findIndex((category) => category.name === transaction.category);
+        return tf.tensor1d([categoryIndex]);
       });
-      const accuracy = await mlModel.evaluate(tf.tensor2d(validationDescriptions, [validationDescriptions.length, 1]), tf.tensor1d(validationLabels));
-      setModelAccuracy(accuracy.accuracy);
+      const validationInputs = validationData.map((transaction) => transaction.description);
+      const validationOutputs = validationData.map((transaction) => {
+        const categoryIndex = budgetCategories.findIndex((category) => category.name === transaction.category);
+        return tf.tensor1d([categoryIndex]);
+      });
+      await mlModel.fit(tf.tensor2d(trainingInputs.map((input) => input.split(' ').map((word) => word.charCodeAt(0)))), tf.tensor2d(trainingOutputs.map((output) => output.dataSync())), {
+        epochs: 100,
+        validationData: [tf.tensor2d(validationInputs.map((input) => input.split(' ').map((word) => word.charCodeAt(0)))), tf.tensor2d(validationOutputs.map((output) => output.dataSync()))],
+      });
+      const accuracy = await mlModel.evaluate(tf.tensor2d(validationInputs.map((input) => input.split(' ').map((word) => word.charCodeAt(0)))), tf.tensor2d(validationOutputs.map((output) => output.dataSync())));
+      setModelAccuracy(accuracy.accuracy.dataSync()[0]);
     }
   };
 
   return (
     <div>
-      <BudgetForm
-        budgetCategories={budgetCategories}
-        handleBudgetSubmit={handleBudgetSubmit}
-      />
-      <BudgetTable
-        transactions={transactions}
-        budgetCategories={budgetCategories}
-        selectedCategory={selectedCategory}
-        handleCategoryChange={handleCategoryChange}
-      />
+      <BudgetForm onSubmit={handleBudgetSubmit} />
+      <BudgetTable categories={budgetCategories} transactions={transactions} selectedCategory={selectedCategory} onCategoryChange={handleCategoryChange} />
+      <h2>Suggested Budget Categories</h2>
+      <ul>
+        {suggestedCategories.map((category) => (
+          <li key={category.name}>{category.name} ({category.percentage}%)</li>
+        ))}
+      </ul>
     </div>
   );
 }
